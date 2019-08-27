@@ -104,7 +104,7 @@ void parse_tracefile(char program[], char tracefile[])
             io_data[currentProcess][currentEvent] = atoi(word3);
             currentEvent++;
             
-            //  AN I/O EVENT FOR THE CURRENT PROCESS
+            //  AN I/O EVENT FOR THE CURRENT PROCESS.
         }
 
         else if(nwords == 2 && strcmp(word0, "exit") == 0) {
