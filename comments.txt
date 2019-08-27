@@ -1,0 +1,1 @@
+time in trace file (microseconds) is listed cumulatively. 
