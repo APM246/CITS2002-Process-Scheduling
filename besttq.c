@@ -66,6 +66,8 @@ int currentEvent = 0;
 int readyQueue[MAX_PROCESSES] = {1}; // keeps track of processes in ready queue, 1st process is already added 
 int previous = 1; // most recent process that completed a time quantum (or requested I/O or exited)
 int number_of_exited_processes = 0;
+int number_of_active_processes = 1;  // processes currently rotating between ready and running 
+// set to 1 automatically (process 1)
 
 void parse_tracefile(char program[], char tracefile[])
 {
@@ -160,42 +162,35 @@ void reset_readyQueue()
 
 int toAdd = 1; //next process waiting to be added to ready queue for the first time
 
-void sortQueue(int currentTime, int queue[])
+void sortQueue(int system_time)
 {
-    if (currentProcess == 1) 
+    previous = readyQueue[0]; 
+    for (int i = 0; i < currentProcess - 1; i++)
     {
-        if (computing_time[0] <= 0) 
-        {
-            queue[0] = 0;
-            number_of_exited_processes++;
-        }
-        return;
+        int nextvalue;
+        if((nextvalue = readyQueue[i+1]) != 0) readyQueue[i] = nextvalue;
     }
 
+    if (toAdd < currentProcess) //only add processes if limit has not been reached
+    {
+        if (system_time >= starting_time[toAdd])
+        {
+            readyQueue[number_of_active_processes - 1] = toAdd + 1;
+            toAdd++;
+            number_of_active_processes++;
+            readyQueue[number_of_active_processes - 1] = previous;
+        }
+    }
+
+    else if (computing_time[previous - 1] > 0)
+    {
+        readyQueue[number_of_active_processes - 1] = previous;
+    }
     else 
     {
-        previous = queue[0]; 
-        for (int i = 0; i < currentProcess - 1; i++)
-        {
-            queue[i] = queue[i+1];
-        }
-
-        if (currentTime >= starting_time[toAdd])
-        {
-            queue[currentProcess - 1] = toAdd + 1;
-            toAdd++;
-            queue[currentProcess] = previous;
-        }
-
-        else if (computing_time[previous] > 0)
-        {
-            queue[currentProcess - 1] = previous;
-        }
-        else 
-        {
-            queue[currentProcess - 1] = 0;
-            number_of_exited_processes++;
-        }
+        readyQueue[number_of_active_processes - 1] = 0;
+        number_of_exited_processes++;
+        number_of_active_processes--;
     }
 }
 
@@ -210,7 +205,7 @@ void simulate_job_mix(int time_quantum)
         int executiontime = min(time_quantum, computing_time[readyQueue[0] - 1]);
         total_process_completion_time += executiontime;
         computing_time[readyQueue[0] - 1] -= executiontime;
-        sortQueue(starting_time[0] + total_process_completion_time, readyQueue);
+        sortQueue(starting_time[0] + total_process_completion_time);
         
     }
 }
@@ -221,9 +216,11 @@ void reset_everything(char program[], char tracefile[])
 {
     total_process_completion_time = 0; 
     number_of_exited_processes = 0;
+    number_of_active_processes = 1;
     currentProcess = 0;
     currentEvent = 0;
     previous = 1;
+    toAdd = 1;
     parse_tracefile(program, tracefile);
     reset_readyQueue();
 }
