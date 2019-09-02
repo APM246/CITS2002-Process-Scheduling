@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
 /* CITS2002 Project 1 2019
    Name(s):             student-name1 (, student-name2)
@@ -35,6 +36,7 @@
 
 int optimal_time_quantum                = 0;
 int total_process_completion_time       = 0;
+int optimal_completion_time             = 0;
 
 //  ----------------------------------------------------------------------
 
@@ -46,11 +48,16 @@ int total_process_completion_time       = 0;
 char devices[MAX_DEVICES][MAX_DEVICE_NAME];  // STORE DEVICE NAMES
 int transfer_rate[MAX_DEVICES];  // STORE TRANSFER RATES [BYTES/SECOND] 
 int starting_time[MAX_PROCESSES]; // STORE STARTING TIME OF PROCESSES (SINCE OS REBOOT)
-int cumulative_exectime[MAX_PROCESSES][MAX_EVENTS_PER_PROCESS]; // STORE CUMULATIVE EXECUTION TIMES OF EVENTS IN EACH PROCESS 
-int currentProcess = 0; // CURRENT PROCESS AND EVENT BEING ANALYSED
-int currentEvent = 0;
+int cumulative_exectime[MAX_PROCESSES][MAX_EVENTS_PER_PROCESS]; /* STORE CUMULATIVE EXECUTION TIMES OF EVENTS IN 
+EACH PROCESS*/ 
 char io_events[MAX_PROCESSES][MAX_EVENTS_PER_PROCESS][MAX_DEVICE_NAME];
 int io_data[MAX_PROCESSES][MAX_EVENTS_PER_PROCESS];
+int computing_time[MAX_PROCESSES]; //cumulative execution time when processes exit 
+
+int currentProcess = 0; // CURRENT PROCESS AND EVENT BEING ANALYSED
+int currentEvent = 0;
+int readyQueue[MAX_PROCESSES] = {1}; // keeps track of processes in ready queue, 1st process is already added 
+int previous = 1; // most recent process that completed a time quantum (or requested I/O or exited)
 
 void parse_tracefile(char program[], char tracefile[])
 {
@@ -104,12 +111,13 @@ void parse_tracefile(char program[], char tracefile[])
             io_data[currentProcess][currentEvent] = atoi(word3);
             currentEvent++;
             
-            //  AN I/O EVENT FOR THE CURRENT PROCESS.
+            //  AN I/O EVENT FOR THE CURRENT PROCESS
         }
 
         else if(nwords == 2 && strcmp(word0, "exit") == 0) {
             currentProcess++;
-            currentEvent = 0;   //  PRESUMABLY THE LAST EVENT WE'LL SEE FOR THE CURRENT PROCESS
+            currentEvent = 0;
+            computing_time[lc-1] = atoi(word1);   //  PRESUMABLY THE LAST EVENT WE'LL SEE FOR THE CURRENT PROCESS
         }
 
         else if(nwords == 1 && strcmp(word0, "}") == 0) {
@@ -129,27 +137,61 @@ void parse_tracefile(char program[], char tracefile[])
 
 //  ----------------------------------------------------------------------
 
+int toAdd = 2; //next process waiting to be added to ready queue for the first time
+
+void sortQueue(int currentTime, int queue[])
+{
+    if (currentProcess == 1) 
+    {
+        if (computing_time[0] <= 0) queue[0] = 0;
+        return;
+    }
+
+    else 
+    {
+        previous = queue[0]; 
+        for (int i = 0; i < currentProcess - 1; i++)
+        {
+            queue[i] = queue[i+1];
+        }
+
+        if (currentTime >= starting_time[toAdd])
+        {
+            queue[currentProcess - 1] = toAdd;
+            toAdd++;
+            queue[currentProcess] = previous;
+        }
+
+        else if (computing_time[previous] > 0)
+        {
+            queue[currentProcess - 1] = previous;
+        }
+        else queue[currentProcess - 1] = 0;
+    }
+}
+
+bool isFinished(int queue[])
+{
+    for (int i = 0; i < currentProcess; i++)
+    {
+        if (queue[i] != 0) return false;
+    }
+
+    return true; //ready queue is empty 
+}
+
 //  SIMULATE THE JOB-MIX FROM THE TRACEFILE, FOR THE GIVEN TIME-QUANTUM
 void simulate_job_mix(int time_quantum)
 {
-    // ------- PRINTING CONTENTS OF DATA STRUCTURES TO CHECK --------------
+    total_process_completion_time = TIME_CONTEXT_SWITCH; // 5 microseconds at start added
 
-    for (int i = 0; i < MAX_DEVICES; i++)
+    while (!isFinished(readyQueue))
     {
-        printf("\n%s, %i\n\n", devices[i], transfer_rate[i]);
+        if (readyQueue[0] != previous) total_process_completion_time += TIME_CONTEXT_SWITCH;
+        total_process_completion_time += time_quantum;
+        computing_time[readyQueue[0] - 1] -= time_quantum;
+        sortQueue(starting_time[0] + total_process_completion_time, readyQueue);
     }
-    for (int i = 0; i < currentProcess; i++)
-    {
-        printf("\nprocess %i %i {\n", i, starting_time[i]);
-        for (int j = 0; j < MAX_EVENTS_PER_PROCESS; j++)
-        {
-            if (cumulative_exectime[i][j] == 0) break;
-            printf("i/o %i %s %i\n\n",cumulative_exectime[i][j],io_events[i][j],io_data[i][j]);
-        }
-    }
-
-    /*printf("running simulate_job_mix( time_quantum = %i usecs )\n",
-                time_quantum);*/
 }
 
 //  ----------------------------------------------------------------------
@@ -191,16 +233,38 @@ int main(int argcount, char *argvalue[])
 //  READ THE JOB-MIX FROM THE TRACEFILE, STORING INFORMATION IN DATA-STRUCTURES
     parse_tracefile(argvalue[0], argvalue[1]);
 
+    //---------------------------
+
+    /*for (int i = 0; i < MAX_PROCESSES; i++)
+    {
+        printf("\n");
+        printf("%i, ", readyQueue[i]);
+        printf("\n\n");
+    }*/
+
+   //-----------------------------
+
 //  SIMULATE THE JOB-MIX FROM THE TRACEFILE, VARYING THE TIME-QUANTUM EACH TIME.
 //  WE NEED TO FIND THE BEST (SHORTEST) TOTAL-PROCESS-COMPLETION-TIME
 //  ACROSS EACH OF THE TIME-QUANTA BEING CONSIDERED
 
+// Simulate with TQ0 first then compare with subsequent TQ values. 
+    simulate_job_mix(TQ0);
+    optimal_time_quantum = TQ0;
+    optimal_completion_time = total_process_completion_time;
+
     for(int time_quantum=TQ0 ; time_quantum<=TQfinal ; time_quantum += TQinc) {
         simulate_job_mix(time_quantum);
+        if (total_process_completion_time < optimal_completion_time)
+        {
+            optimal_completion_time = total_process_completion_time;
+            optimal_time_quantum = time_quantum;
+        }
+        total_process_completion_time = 0; //reset value
     }
 
 //  PRINT THE PROGRAM'S RESULT
-    printf("best %i %i\n", optimal_time_quantum, total_process_completion_time);
+    printf("best %i %i\n", optimal_time_quantum, optimal_completion_time);
 
     exit(EXIT_SUCCESS);
 }

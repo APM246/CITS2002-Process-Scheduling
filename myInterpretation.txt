@@ -1,0 +1,25 @@
+tfA - 55 useconds
+tfB - 305 us
+
+tfC -
+595 us
+
+tf D -
+
+5 + 50(A) + 50(A) + 5 + 50(B) + 5 + 50(A) + 5 + 50(B) + 5 + 50(A) + 5 + 50(B) + 5 + 50(A) + 50(A)
+
+485 us
+
+
+don't do with respect to OS reboot. Start from when process enters ready queue. 
+
+processes run for full time quantum UNLESS io request, in which case it is kicked off immediately. 
+
+time_running = min(time_quantum, time_until_next_io)
+
+
+if (currentProcess == 1) 
+    {
+        total_process_completion_time = TIME_CONTEXT_SWITCH + exit_time[0];
+        return;
+    }

@@ -1,0 +1,6 @@
+# one process, no I/O, process exits even before 1st time quantum expires.
+# Run with	/cslinux/bin/besttq-sample -v tfA 200
+#
+process 1 10 {
+    exit        40
+}

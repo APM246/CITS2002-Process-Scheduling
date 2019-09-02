@@ -1,0 +1,13 @@
+for (int i = 0; i < MAX_DEVICES; i++)
+    {
+        printf("\n%s, %i\n\n", devices[i], transfer_rate[i]);
+    }
+    for (int i = 0; i < currentProcess; i++)
+    {
+        printf("\nprocess %i %i {\n", i, starting_time[i]);
+        for (int j = 0; j < MAX_EVENTS_PER_PROCESS; j++)
+        {
+            if (cumulative_exectime[i][j] == 0) break;
+            printf("i/o %i %s %i\n\n",cumulative_exectime[i][j],io_events[i][j],io_data[i][j]);
+        }
+    }
