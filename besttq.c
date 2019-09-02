@@ -43,6 +43,13 @@ int optimal_completion_time             = 0;
 #define CHAR_COMMENT            '#'
 #define MAXWORD                 20
 
+//  ----------------------------------------------------------------------
+
+    // MIN AND MAX FUNCTIONS to compare two values 
+
+#define min(x,y) (x) < (y) ? (x) : (y)
+#define max(x,y) (x) < (y) ? (y) : (x)
+
 // --------- DATA STRUCTURES USED TO STORE INFORMATION FROM TRACE FILES ------
 
 char devices[MAX_DEVICES][MAX_DEVICE_NAME];  // STORE DEVICE NAMES
@@ -54,10 +61,11 @@ char io_events[MAX_PROCESSES][MAX_EVENTS_PER_PROCESS][MAX_DEVICE_NAME];
 int io_data[MAX_PROCESSES][MAX_EVENTS_PER_PROCESS];
 int computing_time[MAX_PROCESSES]; //cumulative execution time when processes exit 
 
-int currentProcess = 0; // CURRENT PROCESS AND EVENT BEING ANALYSED
+int currentProcess = 0; // CURRENT PROCESS AND EVENT BEING ANALYSED. Also number of processes in total.
 int currentEvent = 0;
 int readyQueue[MAX_PROCESSES] = {1}; // keeps track of processes in ready queue, 1st process is already added 
 int previous = 1; // most recent process that completed a time quantum (or requested I/O or exited)
+int number_of_exited_processes = 0;
 
 void parse_tracefile(char program[], char tracefile[])
 {
@@ -115,9 +123,9 @@ void parse_tracefile(char program[], char tracefile[])
         }
 
         else if(nwords == 2 && strcmp(word0, "exit") == 0) {
+            computing_time[currentProcess] = atoi(word1); 
             currentProcess++;
-            currentEvent = 0;
-            computing_time[lc-1] = atoi(word1);   //  PRESUMABLY THE LAST EVENT WE'LL SEE FOR THE CURRENT PROCESS
+            currentEvent = 0; 
         }
 
         else if(nwords == 1 && strcmp(word0, "}") == 0) {
@@ -137,13 +145,28 @@ void parse_tracefile(char program[], char tracefile[])
 
 //  ----------------------------------------------------------------------
 
-int toAdd = 2; //next process waiting to be added to ready queue for the first time
+//  resets readyQueue for each new simulation of job mix (with TQ varying)
+void reset_readyQueue()
+{
+    readyQueue[0] = 1;
+
+    for (int i = 1; i < MAX_PROCESSES; i++)
+    {
+        readyQueue[i] = 0;
+    }
+}
+
+int toAdd = 1; //next process waiting to be added to ready queue for the first time
 
 void sortQueue(int currentTime, int queue[])
 {
     if (currentProcess == 1) 
     {
-        if (computing_time[0] <= 0) queue[0] = 0;
+        if (computing_time[0] <= 0) 
+        {
+            queue[0] = 0;
+            number_of_exited_processes++;
+        }
         return;
     }
 
@@ -157,7 +180,7 @@ void sortQueue(int currentTime, int queue[])
 
         if (currentTime >= starting_time[toAdd])
         {
-            queue[currentProcess - 1] = toAdd;
+            queue[currentProcess - 1] = toAdd + 1;
             toAdd++;
             queue[currentProcess] = previous;
         }
@@ -166,18 +189,12 @@ void sortQueue(int currentTime, int queue[])
         {
             queue[currentProcess - 1] = previous;
         }
-        else queue[currentProcess - 1] = 0;
+        else 
+        {
+            queue[currentProcess - 1] = 0;
+            number_of_exited_processes++;
+        }
     }
-}
-
-bool isFinished(int queue[])
-{
-    for (int i = 0; i < currentProcess; i++)
-    {
-        if (queue[i] != 0) return false;
-    }
-
-    return true; //ready queue is empty 
 }
 
 //  SIMULATE THE JOB-MIX FROM THE TRACEFILE, FOR THE GIVEN TIME-QUANTUM
@@ -185,13 +202,28 @@ void simulate_job_mix(int time_quantum)
 {
     total_process_completion_time = TIME_CONTEXT_SWITCH; // 5 microseconds at start added
 
-    while (!isFinished(readyQueue))
+    while (number_of_exited_processes < currentProcess) 
     {
         if (readyQueue[0] != previous) total_process_completion_time += TIME_CONTEXT_SWITCH;
-        total_process_completion_time += time_quantum;
-        computing_time[readyQueue[0] - 1] -= time_quantum;
+        int executiontime = min(time_quantum, computing_time[readyQueue[0] - 1]);
+        total_process_completion_time += executiontime;
+        computing_time[readyQueue[0] - 1] -= executiontime;
         sortQueue(starting_time[0] + total_process_completion_time, readyQueue);
+        
     }
+}
+
+// RESET ALL VARIABLES INCLUDING ARRAYS AND SCALAR VARIABLES. THIS FUNCTION IS CALLED
+// WHEN A NEW SIMULATION IS RUN (SAME JOB MIX BUT DIFFERENT TIME QUANTUM)
+void reset_everything(char program[], char tracefile[])
+{
+    total_process_completion_time = 0; 
+    number_of_exited_processes = 0;
+    currentProcess = 0;
+    currentEvent = 0;
+    previous = 1;
+    parse_tracefile(program, tracefile);
+    reset_readyQueue();
 }
 
 //  ----------------------------------------------------------------------
@@ -233,17 +265,6 @@ int main(int argcount, char *argvalue[])
 //  READ THE JOB-MIX FROM THE TRACEFILE, STORING INFORMATION IN DATA-STRUCTURES
     parse_tracefile(argvalue[0], argvalue[1]);
 
-    //---------------------------
-
-    /*for (int i = 0; i < MAX_PROCESSES; i++)
-    {
-        printf("\n");
-        printf("%i, ", readyQueue[i]);
-        printf("\n\n");
-    }*/
-
-   //-----------------------------
-
 //  SIMULATE THE JOB-MIX FROM THE TRACEFILE, VARYING THE TIME-QUANTUM EACH TIME.
 //  WE NEED TO FIND THE BEST (SHORTEST) TOTAL-PROCESS-COMPLETION-TIME
 //  ACROSS EACH OF THE TIME-QUANTA BEING CONSIDERED
@@ -252,15 +273,19 @@ int main(int argcount, char *argvalue[])
     simulate_job_mix(TQ0);
     optimal_time_quantum = TQ0;
     optimal_completion_time = total_process_completion_time;
+    reset_everything(argvalue[0], argvalue[1]);
 
-    for(int time_quantum=TQ0 ; time_quantum<=TQfinal ; time_quantum += TQinc) {
+    for (int time_quantum=TQ0 ; time_quantum<=TQfinal ; time_quantum += TQinc) 
+    {
         simulate_job_mix(time_quantum);
         if (total_process_completion_time < optimal_completion_time)
         {
             optimal_completion_time = total_process_completion_time;
             optimal_time_quantum = time_quantum;
         }
-        total_process_completion_time = 0; //reset value
+
+        // RESET ALL RELEVANT VARIABLES [arrays, scalar variables, etc]
+        reset_everything(argvalue[0], argvalue[1]);
     }
 
 //  PRINT THE PROGRAM'S RESULT
