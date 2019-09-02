@@ -162,6 +162,7 @@ void reset_readyQueue()
 
 int toAdd = 1; //next process waiting to be added to ready queue for the first time
 
+// manages the Ready Queue after each time quantum (or when a process exits/becomes blocked)
 void sortQueue(int system_time)
 {
     previous = readyQueue[0]; 
@@ -175,10 +176,10 @@ void sortQueue(int system_time)
     {
         if (system_time >= starting_time[toAdd])
         {
+            number_of_active_processes++;
             readyQueue[number_of_active_processes - 1] = toAdd + 1;
             toAdd++;
-            number_of_active_processes++;
-            readyQueue[number_of_active_processes - 1] = previous;
+            readyQueue[number_of_active_processes] = previous;
         }
     }
 
@@ -186,6 +187,7 @@ void sortQueue(int system_time)
     {
         readyQueue[number_of_active_processes - 1] = previous;
     }
+
     else 
     {
         readyQueue[number_of_active_processes - 1] = 0;
@@ -201,12 +203,20 @@ void simulate_job_mix(int time_quantum)
 
     while (number_of_exited_processes < currentProcess) 
     {
-        if (readyQueue[0] != previous) total_process_completion_time += TIME_CONTEXT_SWITCH;
-        int executiontime = min(time_quantum, computing_time[readyQueue[0] - 1]);
-        total_process_completion_time += executiontime;
-        computing_time[readyQueue[0] - 1] -= executiontime;
-        sortQueue(starting_time[0] + total_process_completion_time);
-        
+        if (number_of_active_processes == 0)
+        {
+            total_process_completion_time = starting_time[toAdd] - starting_time[0];
+        }
+
+        else
+        { 
+            if (readyQueue[0] != previous) total_process_completion_time += TIME_CONTEXT_SWITCH;
+            int executiontime = min(time_quantum, computing_time[readyQueue[0] - 1]);
+            total_process_completion_time += executiontime;
+            computing_time[readyQueue[0] - 1] -= executiontime;
+        }
+
+        sortQueue(starting_time[0] + total_process_completion_time);   
     }
 }
 
