@@ -176,7 +176,17 @@ int toAdd = 1; //next process waiting to be added to ready queue for the first t
 // manages the Ready Queue after each time quantum (or when a process exits/becomes blocked)
 void sortQueue(int system_time)
 {
-    previous = readyQueue[0]; 
+	int n_active_processes = number_of_active_processes; //keep copy for later 
+	previous = readyQueue[0];
+
+	if (cumulative_exectime[readyQueue[0] - 1][0] <= 0 && number_of_active_processes != 0)
+	{
+		number_of_active_processes--;
+		number_of_exited_processes++; 
+		previous = 0;
+	}
+
+  
     for (int i = 0; i < totalProcesses - 1; i++)
     {
         int nextvalue;
@@ -187,8 +197,8 @@ void sortQueue(int system_time)
      {
             if (number_of_active_processes != 0)
             {
-                readyQueue[number_of_active_processes - 1] = toAdd + 1;
-                readyQueue[number_of_active_processes] = previous;
+                readyQueue[n_active_processes - 1] = toAdd + 1;
+                readyQueue[n_active_processes] = previous;
             }
             else readyQueue[0] = toAdd + 1;
             
@@ -201,12 +211,7 @@ void sortQueue(int system_time)
         readyQueue[number_of_active_processes - 1] = previous;
     }
 
-    else 
-    {
-        readyQueue[number_of_active_processes - 1] = 0;
-        number_of_exited_processes++;
-        number_of_active_processes--;
-    }
+    else readyQueue[number_of_active_processes] = 0;
 }
 
 //  SIMULATE THE JOB-MIX FROM THE TRACEFILE, FOR THE GIVEN TIME-QUANTUM
