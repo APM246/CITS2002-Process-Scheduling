@@ -80,7 +80,7 @@ void parse_tracefile(char program[], char tracefile[])
     char line[BUFSIZ];
     int  lc     = 0;
     int device_counter = 0; //number of devices 
-    int n_events = 0;
+    int n_events = 0; //number of events for each process
 
 //  READ EACH LINE FROM THE TRACEFILE, UNTIL WE REACH THE END-OF-FILE
     while(fgets(line, sizeof line, fp) != NULL) {
@@ -113,7 +113,7 @@ void parse_tracefile(char program[], char tracefile[])
         }
 
         else if(nwords == 4 && strcmp(word0, "process") == 0) {
-            starting_time[atoi(word1) - 1] = atoi(word2); // FOUND THE START OF A PROCESS'S EVENTS
+            starting_time[totalProcesses] = atoi(word2); // FOUND THE START OF A PROCESS'S EVENTS
         }
 
         else if(nwords == 4 && strcmp(word0, "i/o") == 0) {
