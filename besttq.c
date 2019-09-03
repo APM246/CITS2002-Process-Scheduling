@@ -22,9 +22,7 @@
 #define MAX_DEVICES             4
 #define MAX_DEVICE_NAME         20
 #define MAX_PROCESSES           50
-// DO NOT USE THIS - #define MAX_PROCESS_EVENTS      1000
 #define MAX_EVENTS_PER_PROCESS	100
-
 #define TIME_CONTEXT_SWITCH     5
 #define TIME_ACQUIRE_BUS        5
 
@@ -55,15 +53,15 @@ int optimal_completion_time             = 0;
 char devices[MAX_DEVICES][MAX_DEVICE_NAME];  // STORE DEVICE NAMES
 int transfer_rate[MAX_DEVICES];  // STORE TRANSFER RATES [BYTES/SECOND] 
 int starting_time[MAX_PROCESSES]; // STORE STARTING TIME OF PROCESSES (SINCE OS REBOOT)
-int cumulative_exectime[MAX_PROCESSES][MAX_EVENTS_PER_PROCESS]; /* STORE CUMULATIVE EXECUTION TIMES OF EVENTS IN 
-EACH PROCESS*/ 
+
 char io_events[MAX_PROCESSES][MAX_EVENTS_PER_PROCESS][MAX_DEVICE_NAME];
 int io_data[MAX_PROCESSES][MAX_EVENTS_PER_PROCESS];
-int computing_time[MAX_PROCESSES]; //cumulative execution time when processes exit 
+int cumulative_exectime[MAX_PROCESSES][MAX_EVENTS_PER_PROCESS]; /* STORE CUMULATIVE EXECUTION TIMES OF EVENTS IN 
+EACH PROCESS*/ 
 
-int currentProcess = 0; // CURRENT PROCESS AND EVENT BEING ANALYSED. Also number of processes in total.
-int currentEvent = 0;
-int readyQueue[MAX_PROCESSES] = {1}; // keeps track of processes in ready queue, 1st process is already added 
+int totalProcesses = 0; // CURRENT PROCESS AND EVENT BEING ANALYSED. Also number of processes in total.
+int readyQueue[MAX_PROCESSES] = {1}; // keeps track of processes in ready queue, 1st process is already added
+int currentEvent_of_each_process[MAX_PROCESSES];
 int previous = 1; // most recent process that completed a time quantum (or requested I/O or exited)
 int number_of_exited_processes = 0;
 int number_of_active_processes = 1;  // processes currently rotating between ready and running 
@@ -82,6 +80,7 @@ void parse_tracefile(char program[], char tracefile[])
     char line[BUFSIZ];
     int  lc     = 0;
     int device_counter = 0; //number of devices 
+    int n_events = 0;
 
 //  READ EACH LINE FROM THE TRACEFILE, UNTIL WE REACH THE END-OF-FILE
     while(fgets(line, sizeof line, fp) != NULL) {
@@ -118,18 +117,18 @@ void parse_tracefile(char program[], char tracefile[])
         }
 
         else if(nwords == 4 && strcmp(word0, "i/o") == 0) {
-            cumulative_exectime[currentProcess][currentEvent] = atoi(word1);   
-            strcpy(io_events[currentProcess][currentEvent], word2);
-            io_data[currentProcess][currentEvent] = atoi(word3);
-            currentEvent++;
+            cumulative_exectime[totalProcesses][n_events] = atoi(word1);   
+            strcpy(io_events[totalProcesses][n_events], word2);
+            io_data[totalProcesses][n_events] = atoi(word3);
+            n_events++;
             
             //  AN I/O EVENT FOR THE CURRENT PROCESS
         }
 
         else if(nwords == 2 && strcmp(word0, "exit") == 0) {
-            computing_time[currentProcess] = atoi(word1); 
-            currentProcess++;
-            currentEvent = 0; 
+            cumulative_exectime[totalProcesses][n_events] = atoi(word1); 
+            totalProcesses++;
+            n_events = 0; 
         }
 
         else if(nwords == 1 && strcmp(word0, "}") == 0) {
@@ -149,7 +148,9 @@ void parse_tracefile(char program[], char tracefile[])
 
 //  ----------------------------------------------------------------------
 
-//  resets readyQueue for each new simulation of job mix (with TQ varying)
+//  two functions which reset readyQueue and currentEvent_of_each_process 
+// for each new simulation of job mix (with TQ varying)
+
 void reset_readyQueue()
 {
     readyQueue[0] = 1;
@@ -160,30 +161,42 @@ void reset_readyQueue()
     }
 }
 
+void reset_currentEvent_of_each_process()
+{
+    for (int i = 0; i < MAX_PROCESSES; i++)
+    {
+        currentEvent_of_each_process[i] = 1;
+    }
+}
+
+//  ----------------------------------------------------------------------
+
 int toAdd = 1; //next process waiting to be added to ready queue for the first time
 
 // manages the Ready Queue after each time quantum (or when a process exits/becomes blocked)
 void sortQueue(int system_time)
 {
     previous = readyQueue[0]; 
-    for (int i = 0; i < currentProcess - 1; i++)
+    for (int i = 0; i < totalProcesses - 1; i++)
     {
         int nextvalue;
         if((nextvalue = readyQueue[i+1]) != 0) readyQueue[i] = nextvalue;
     }
 
-    if (toAdd < currentProcess) //only add processes if limit has not been reached
-    {
-        if (system_time >= starting_time[toAdd])
-        {
-            number_of_active_processes++;
-            readyQueue[number_of_active_processes - 1] = toAdd + 1;
+    if (system_time >= starting_time[toAdd] && toAdd < totalProcesses) //only add processes if limit has not been reached
+     {
+            if (number_of_active_processes != 0)
+            {
+                readyQueue[number_of_active_processes - 1] = toAdd + 1;
+                readyQueue[number_of_active_processes] = previous;
+            }
+            else readyQueue[0] = toAdd + 1;
+            
             toAdd++;
-            readyQueue[number_of_active_processes] = previous;
-        }
-    }
+            number_of_active_processes++;
+     }
 
-    else if (computing_time[previous - 1] > 0)
+    else if (cumulative_exectime[previous - 1][0] > 0)
     {
         readyQueue[number_of_active_processes - 1] = previous;
     }
@@ -199,9 +212,10 @@ void sortQueue(int system_time)
 //  SIMULATE THE JOB-MIX FROM THE TRACEFILE, FOR THE GIVEN TIME-QUANTUM
 void simulate_job_mix(int time_quantum)
 {
+    reset_currentEvent_of_each_process();
     total_process_completion_time = TIME_CONTEXT_SWITCH; // 5 microseconds at start added
 
-    while (number_of_exited_processes < currentProcess) 
+    while (number_of_exited_processes < totalProcesses) 
     {
         if (number_of_active_processes == 0)
         {
@@ -211,9 +225,9 @@ void simulate_job_mix(int time_quantum)
         else
         { 
             if (readyQueue[0] != previous) total_process_completion_time += TIME_CONTEXT_SWITCH;
-            int executiontime = min(time_quantum, computing_time[readyQueue[0] - 1]);
+            int executiontime = min(time_quantum, cumulative_exectime[readyQueue[0] - 1][0]);
             total_process_completion_time += executiontime;
-            computing_time[readyQueue[0] - 1] -= executiontime;
+            cumulative_exectime[readyQueue[0] - 1][0] -= executiontime;
         }
 
         sortQueue(starting_time[0] + total_process_completion_time);   
@@ -227,11 +241,11 @@ void reset_everything(char program[], char tracefile[])
     total_process_completion_time = 0; 
     number_of_exited_processes = 0;
     number_of_active_processes = 1;
-    currentProcess = 0;
-    currentEvent = 0;
+    totalProcesses = 0;
     previous = 1;
     toAdd = 1;
     parse_tracefile(program, tracefile);
+    reset_currentEvent_of_each_process();
     reset_readyQueue();
 }
 
@@ -303,4 +317,4 @@ int main(int argcount, char *argvalue[])
     exit(EXIT_SUCCESS);
 }
 
-//  vim: ts=8 sw=4
+//  vim: ts=8 sw=4 
