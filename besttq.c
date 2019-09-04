@@ -63,7 +63,7 @@ int total_exectime[MAX_PROCESSES]; // KEEPS TRACK OF AMOUNT OF TIME EACH PROCESS
 int totalProcesses = 0; // CURRENT PROCESS AND EVENT BEING ANALYSED. Also number of processes in total.
 int readyQueue[MAX_PROCESSES] = {1}; // keeps track of processes in ready queue, 1st process is already added
 int blockedQueue[MAX_PROCESSES];
-int currentEvent_of_each_process[MAX_PROCESSES];
+int currentEvent_of_each_process[MAX_PROCESSES] = {0};
 int previous = 1; // most recent process that completed a time quantum (or requested I/O or exited)
 int number_of_exited_processes = 0;
 int number_of_active_processes = 1;  // processes currently rotating between ready and running 
@@ -167,21 +167,46 @@ void reset_currentEvent_of_each_process()
 {
     for (int i = 0; i < MAX_PROCESSES; i++)
     {
-        currentEvent_of_each_process[i] = 1;
+        currentEvent_of_each_process[i] = 0;
     }
 }
 
+void reset_total_exectime()
+{
+	for (int i = 0; i < MAX_PROCESSES; i++)
+	{
+		total_exectime[i] = 0;
+	}
+}
+
 //  ----------------------------------------------------------------------
+
+// RETURNS EVENT NUMBER OF FINAL EVENT OF A SPECIFIED PROCESS 
+int get_final_event(int process)
+{
+	for (int i = 0; i < MAX_EVENTS_PER_PROCESS; i++)
+	{
+		if (cumulative_exectime[process][i] == 0)
+		{
+			return i - 1;
+		}
+	}
+
+	return MAX_EVENTS_PER_PROCESS - 1; //final event is at index MAX_EVENTS_PER_PROCESS - 1.
+}
+
 
 int toAdd = 1; //next process waiting to be added to ready queue for the first time
 
 // manages the Ready Queue after each time quantum (or when a process exits/becomes blocked)
 void sortQueue(int system_time)
 {
+	int currentProcess = readyQueue[0] - 1; // process that was most recently at front of readyQueue (before it executed)
 	int n_active_processes = number_of_active_processes; //keep copy for later 
 	previous = readyQueue[0];
 
-	if (cumulative_exectime[readyQueue[0] - 1][0] <= 0 && number_of_active_processes != 0)
+	// replace with variables for neatness 
+	if (total_exectime[currentProcess] >= cumulative_exectime[currentProcess][get_final_event(currentProcess)] && number_of_active_processes != 0)
 	{
 		number_of_active_processes--;
 		number_of_exited_processes++; 
@@ -208,7 +233,7 @@ void sortQueue(int system_time)
             number_of_active_processes++;
      }
 
-    else if (cumulative_exectime[previous - 1][0] > 0)
+    else if (total_exectime[currentProcess] < cumulative_exectime[currentProcess][currentEvent_of_each_process[currentProcess]])
     {
         readyQueue[number_of_active_processes - 1] = previous;
     }
@@ -219,22 +244,24 @@ void sortQueue(int system_time)
 //  SIMULATE THE JOB-MIX FROM THE TRACEFILE, FOR THE GIVEN TIME-QUANTUM
 void simulate_job_mix(int time_quantum)
 {
-    reset_currentEvent_of_each_process();
     total_process_completion_time = TIME_CONTEXT_SWITCH; // 5 microseconds at start added
 
     while (number_of_exited_processes < totalProcesses) 
     {
+		int currentProcess = readyQueue[0] - 1; //process at front of readyQueue
+
         if (number_of_active_processes == 0)
         {
             total_process_completion_time = starting_time[toAdd] - starting_time[0];
+			// probably need to re-evaluate when i/o is added 
         }
 
         else
         { 
-            if (readyQueue[0] != previous) total_process_completion_time += TIME_CONTEXT_SWITCH;
-            int executiontime = min(time_quantum, cumulative_exectime[readyQueue[0] - 1][0]);
+            if ((currentProcess + 1) != previous) total_process_completion_time += TIME_CONTEXT_SWITCH;
+            int executiontime = min(time_quantum, cumulative_exectime[currentProcess][currentEvent_of_each_process[currentProcess]] - total_exectime[currentProcess]);
             total_process_completion_time += executiontime;
-            cumulative_exectime[readyQueue[0] - 1][0] -= executiontime;
+			total_exectime[currentProcess] += executiontime;
         }
 
         sortQueue(starting_time[0] + total_process_completion_time);   
@@ -253,6 +280,7 @@ void reset_everything(char program[], char tracefile[])
     toAdd = 1;
     parse_tracefile(program, tracefile);
     reset_currentEvent_of_each_process();
+	reset_total_exectime();
     reset_readyQueue();
 }
 
