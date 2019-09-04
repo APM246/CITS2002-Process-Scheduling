@@ -58,9 +58,11 @@ char io_events[MAX_PROCESSES][MAX_EVENTS_PER_PROCESS][MAX_DEVICE_NAME];
 int io_data[MAX_PROCESSES][MAX_EVENTS_PER_PROCESS];
 int cumulative_exectime[MAX_PROCESSES][MAX_EVENTS_PER_PROCESS]; /* STORE CUMULATIVE EXECUTION TIMES OF EVENTS IN 
 EACH PROCESS*/ 
+int total_exectime[MAX_PROCESSES]; // KEEPS TRACK OF AMOUNT OF TIME EACH PROCESS HAS SPENT ON THE CPU
 
 int totalProcesses = 0; // CURRENT PROCESS AND EVENT BEING ANALYSED. Also number of processes in total.
 int readyQueue[MAX_PROCESSES] = {1}; // keeps track of processes in ready queue, 1st process is already added
+int blockedQueue[MAX_PROCESSES];
 int currentEvent_of_each_process[MAX_PROCESSES];
 int previous = 1; // most recent process that completed a time quantum (or requested I/O or exited)
 int number_of_exited_processes = 0;
