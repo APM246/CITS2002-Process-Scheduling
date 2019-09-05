@@ -184,6 +184,8 @@ void reset_total_exectime()
 // RETURNS EVENT NUMBER OF FINAL EVENT OF A SPECIFIED PROCESS 
 int get_final_event(int process)
 {
+	if (process < 0) return 0;
+
 	for (int i = 0; i < MAX_EVENTS_PER_PROCESS; i++)
 	{
 		if (cumulative_exectime[process][i] == 0)
@@ -195,35 +197,54 @@ int get_final_event(int process)
 	return MAX_EVENTS_PER_PROCESS - 1; //final event is at index MAX_EVENTS_PER_PROCESS - 1.
 }
 
+// adds a process to the blocked queue. Priority: 
+void append_blockedQueue(int currentProcess)
+{
+	// blockedQueue[BLAH] =  
+	currentEvent_of_each_process[currentProcess]++; //process will move onto next I/O event if it has not exited yet
+}
+
+void sort_blockedQueue(int executiontime)
+{
+	readyQueue[number_of_active_processes] = blockedQueue[0];
+}
 
 int toAdd = 1; //next process waiting to be added to ready queue for the first time
 
 // manages the Ready Queue after each time quantum (or when a process exits/becomes blocked)
-void sortQueue(int system_time)    // REPLACE WITH VARIABLES FOR NEATNESS
+void sort_readyQueue(int system_time)    // REPLACE WITH VARIABLES FOR NEATNESS AND ALSO ALL COMMENTS NEED TO BE IN CAPS
 {
 	int currentProcess = readyQueue[0] - 1; // process that was most recently at front of readyQueue (before it executed)
 	int n_active_processes = number_of_active_processes; //keep copy for later 
 	previous = readyQueue[0];
+	int finalevent = get_final_event(currentProcess);
 
-	if (total_exectime[currentProcess] >= cumulative_exectime[currentProcess][get_final_event(currentProcess)] && number_of_active_processes != 0)
+	// WHEN A PROCESS EXITS 
+	if (total_exectime[currentProcess] >= cumulative_exectime[currentProcess][finalevent] && number_of_active_processes != 0)
 	{
 		number_of_active_processes--;
 		number_of_exited_processes++; 
-		previous = 0;
+		previous = 0;  //process will be removed from readyQueue
 	}
 
-	else if (total_exectime[currentProcess] >= cumulative_exectime[currentProcess][currentEvent_of_each_process[currentProcess]])
+	// WHEN A PROCESS IS TO BE BLOCKED (APPENDING TO BLOCKED QUEUE OCCURS AT END OF FUNCTION)
+	else if (finalevent != 0 && total_exectime[currentProcess] >= cumulative_exectime[currentProcess][currentEvent_of_each_process[currentProcess]])
 	{
-		currentEvent_of_each_process[currentProcess]++;   //process moves onto next I/O event  
+		number_of_active_processes--;   
+		previous = 0;  //process will be removed from readyQueue
 	}
 
-  
+	// MOVES EACH PROCESS 1 INDEX DOWN (1 STEP CLOSER TO FRONT OF READY QUEUE)
+
     for (int i = 0; i < totalProcesses - 1; i++)
     {
         int nextvalue;
         if((nextvalue = readyQueue[i+1]) != 0) readyQueue[i] = nextvalue;
     }
 
+	// THE REMAINING CODE IN THIS FUNCTION DECIDES HOW THE BACK OF THE READY QUEUE SHOULD BE. 
+	// PRIORITY OF PROCESSES: NEW PROCESSES > JUST UNBLOCKED PROCESSES > PROCESSES THAT JUST EXECUTED 
+	
     if (system_time >= starting_time[toAdd] && toAdd < totalProcesses) //only add processes if limit has not been reached
      {
             if (number_of_active_processes != 0)
@@ -242,7 +263,11 @@ void sortQueue(int system_time)    // REPLACE WITH VARIABLES FOR NEATNESS
         readyQueue[number_of_active_processes - 1] = previous;
     }
 
-    else readyQueue[number_of_active_processes] = 0;
+	else
+	{
+		readyQueue[number_of_active_processes] = 0;
+		append_blockedQueue(currentProcess);  // add currentProcess to blockedQueue 
+	}
 }
 
 //  SIMULATE THE JOB-MIX FROM THE TRACEFILE, FOR THE GIVEN TIME-QUANTUM
@@ -264,11 +289,12 @@ void simulate_job_mix(int time_quantum)
         { 
             if ((currentProcess + 1) != previous) total_process_completion_time += TIME_CONTEXT_SWITCH;
             int executiontime = min(time_quantum, cumulative_exectime[currentProcess][currentEvent_of_each_process[currentProcess]] - total_exectime[currentProcess]);
-            total_process_completion_time += executiontime;
+			sort_blockedQueue(executiontime);
+			total_process_completion_time += executiontime;
 			total_exectime[currentProcess] += executiontime;
         }
 
-        sortQueue(starting_time[0] + total_process_completion_time);   
+        sort_readyQueue(starting_time[0] + total_process_completion_time);   
     }
 }
 
