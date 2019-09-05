@@ -150,8 +150,8 @@ void parse_tracefile(char program[], char tracefile[])
 
 //  ----------------------------------------------------------------------
 
-//  two functions which reset readyQueue and currentEvent_of_each_process 
-// for each new simulation of job mix (with TQ varying)
+// three functions which reset readyQueue, currentEvent_of_each_process and total execution time of each process
+// called for each new simulation of job mix (with TQ varying)
 
 void reset_readyQueue()
 {
@@ -199,18 +199,22 @@ int get_final_event(int process)
 int toAdd = 1; //next process waiting to be added to ready queue for the first time
 
 // manages the Ready Queue after each time quantum (or when a process exits/becomes blocked)
-void sortQueue(int system_time)
+void sortQueue(int system_time)    // REPLACE WITH VARIABLES FOR NEATNESS
 {
 	int currentProcess = readyQueue[0] - 1; // process that was most recently at front of readyQueue (before it executed)
 	int n_active_processes = number_of_active_processes; //keep copy for later 
 	previous = readyQueue[0];
 
-	// replace with variables for neatness 
 	if (total_exectime[currentProcess] >= cumulative_exectime[currentProcess][get_final_event(currentProcess)] && number_of_active_processes != 0)
 	{
 		number_of_active_processes--;
 		number_of_exited_processes++; 
 		previous = 0;
+	}
+
+	else if (total_exectime[currentProcess] >= cumulative_exectime[currentProcess][currentEvent_of_each_process[currentProcess]])
+	{
+		currentEvent_of_each_process[currentProcess]++;   //process moves onto next I/O event  
 	}
 
   
