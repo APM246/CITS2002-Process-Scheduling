@@ -25,6 +25,7 @@
 #define MAX_EVENTS_PER_PROCESS	100
 #define TIME_CONTEXT_SWITCH     5
 #define TIME_ACQUIRE_BUS        5
+#define MILLION                 1000000
 
 
 //  NOTE THAT DEVICE DATA-TRANSFER-RATES ARE MEASURED IN BYTES/SECOND,
@@ -153,7 +154,7 @@ void parse_tracefile(char program[], char tracefile[])
 // three functions which reset readyQueue, currentEvent_of_each_process and total execution time of each process
 // called for each new simulation of job mix (with TQ varying)
 
-void reset_readyQueue()
+void reset_readyQueue(void)
 {
     readyQueue[0] = 1;
 
@@ -163,7 +164,7 @@ void reset_readyQueue()
     }
 }
 
-void reset_blockedQueue()
+void reset_blockedQueue(void)
 {
 	for (int i = 0; i < MAX_PROCESSES; i++)
 	{
@@ -171,7 +172,7 @@ void reset_blockedQueue()
 	}
 }
 
-void reset_currentEvent_of_each_process()
+void reset_currentEvent_of_each_process(void)
 {
     for (int i = 0; i < MAX_PROCESSES; i++)
     {
@@ -179,7 +180,7 @@ void reset_currentEvent_of_each_process()
     }
 }
 
-void reset_total_exectime()
+void reset_total_exectime(void)
 {
 	for (int i = 0; i < MAX_PROCESSES; i++)
 	{
@@ -205,6 +206,16 @@ int get_final_event(int process)
 	return MAX_EVENTS_PER_PROCESS - 1; //final event is at index MAX_EVENTS_PER_PROCESS - 1.
 }
 
+bool isEmpty_blockedQueue(void)
+{
+	for (int i = 0; i < MAX_PROCESSES; i++)
+	{
+		if (blockedQueue[i] != 0) return false;
+	}
+
+	return true;
+}
+
 // adds a process to the blocked queue. Priority: 
 void append_blockedQueue(int currentProcess)
 {
@@ -213,13 +224,83 @@ void append_blockedQueue(int currentProcess)
 	currentEvent_of_each_process[currentProcess]++; //process will move onto next I/O event if it has not exited yet
 }
 
-void sort_blockedQueue(int executiontime)
+int device_number(char device_name[])
 {
-	int unblockedprocess = blockedQueue[0];
-	if (unblockedprocess != 0)
+	int device_number = 0; 
+
+	for (int i = 0; i < MAX_DEVICES; i++)
 	{
-		readyQueue[number_of_active_processes] = unblockedprocess;
-		number_of_active_processes++; // append to readyQueue
+		if (strcmp(device_name, devices[i]) == 0)
+		{
+			device_number = i;
+		}
+	}
+
+	return device_number;
+}
+
+int transfer__rate(int device_number)
+{
+	return transfer_rate[device_number];
+}
+
+int highest_transferRate; // transfer rate of process about to perform I/O. 
+
+// FINDS PROCESS WITH HIGHEST PRIORITY TO PERFORM I/O OPERATIONS
+int prioritized_process()
+{
+	int device;
+	//int index;
+	int highest_prioritized_process = blockedQueue[0];
+	highest_transferRate = transfer__rate(device_number(io_events[blockedQueue[0]][currentEvent_of_each_process[blockedQueue[0]] - 1]));
+
+
+	for (int i = 1; i < MAX_PROCESSES; i++)
+	{
+		device = device_number(io_events[blockedQueue[i]][currentEvent_of_each_process[blockedQueue[i]] - 1]);
+		if (transfer__rate(device) > highest_transferRate)
+		{
+			highest_transferRate = transfer__rate(device);
+			highest_prioritized_process = blockedQueue[i];
+			//index = i;
+		}
+	}
+
+	return highest_prioritized_process;  // NEED TO REMOVE PROCESS FROM BLOCKED QUEUE EVENTUALLY AND CLEANUP USING INDEX VARIABLE 
+}
+
+
+// I/O OPERATIONS PERFORMED HERE. available_time represents the time from a process moving to CPU and executing for 
+// the appropriate time. This function calculates which blocked processes will finish their I/O operations in that time.
+void sort_blockedQueue(int available_time)
+{
+	int timespent = 0;
+	int process;
+
+	while (timespent < available_time)
+	{
+		process = prioritized_process();
+		int bytes = io_data[process][currentEvent_of_each_process[process] - 1];
+		if ((bytes / highest_transferRate)*MILLION < available_time - timespent)    // CLEAN UP
+		{
+			timespent += bytes / highest_transferRate;
+			io_data[process][currentEvent_of_each_process[process] - 1] -= bytes;
+		}
+		else
+		{
+			timespent = available_time;
+			io_data[process][currentEvent_of_each_process[process] - 1] -= ((available_time - timespent) * highest_transferRate)/MILLION;
+		}
+	
+		// REMOVE FROM BLOCKED QUEUE IF NO MORE BYTES TO BE TRANSFERRED 
+		for (int i = 0; i < MAX_PROCESSES; i++)
+		{
+			if (io_data[process][currentEvent_of_each_process[process] - 1] <= 0)
+			{
+				readyQueue[number_of_active_processes] = process;
+				number_of_active_processes++;
+			}
+		}
 	}
 }
 
@@ -264,6 +345,8 @@ void sort_readyQueue(int system_time)    // REPLACE WITH VARIABLES FOR NEATNESS 
 
 	if (system_time >= starting_time[toAdd] && toAdd < totalProcesses) //only add processes if limit has not been reached
 	{
+		do
+		{
 			if (number_of_active_processes != 0)
 			{
 				readyQueue[n_active_processes - 1] = toAdd + 1;
@@ -273,6 +356,9 @@ void sort_readyQueue(int system_time)    // REPLACE WITH VARIABLES FOR NEATNESS 
 
 			toAdd++;
 			number_of_active_processes++;
+			n_active_processes++;
+		} 
+		while (system_time >= starting_time[toAdd] && toAdd < totalProcesses); // more processes might also be ready to enter RQ
 	}
 
 	else if (total_exectime[currentProcess] < cumulative_exectime[currentProcess][unchanged_currentEvent])
@@ -290,6 +376,17 @@ void sort_readyQueue(int system_time)    // REPLACE WITH VARIABLES FOR NEATNESS 
 
 }
 
+// process executes on CPU. Called by simulate_job_mix()
+void execute_normally(int time_quantum, int currentProcess)
+{
+
+	if ((currentProcess + 1) != previous) total_process_completion_time += TIME_CONTEXT_SWITCH;
+	int executiontime = min(time_quantum, cumulative_exectime[currentProcess][currentEvent_of_each_process[currentProcess]] - total_exectime[currentProcess]);
+	if (!isEmpty_blockedQueue()) sort_blockedQueue(executiontime + TIME_CONTEXT_SWITCH);
+	total_process_completion_time += executiontime;
+	total_exectime[currentProcess] += executiontime;
+}
+
 //  SIMULATE THE JOB-MIX FROM THE TRACEFILE, FOR THE GIVEN TIME-QUANTUM
 void simulate_job_mix(int time_quantum)
 {
@@ -301,21 +398,27 @@ void simulate_job_mix(int time_quantum)
 
         if (number_of_active_processes == 0)
         {
-            total_process_completion_time = starting_time[toAdd] - starting_time[0];
-			// need to call sort_blockedQueue() here as well? 
+			if (!isEmpty_blockedQueue())
+			{
+				//readyQueue[0] = 0; //remove 
+				execute_normally(time_quantum, currentProcess);
+
+			}
+			else
+			{
+				int jumpforward = starting_time[toAdd] - starting_time[0];
+				total_process_completion_time = jumpforward;  //jump forward in time to next process (since nothing happens in
+				// between)
+			}
         }
 
         else
         { 
-            if ((currentProcess + 1) != previous) total_process_completion_time += TIME_CONTEXT_SWITCH;
-            int executiontime = min(time_quantum, cumulative_exectime[currentProcess][currentEvent_of_each_process[currentProcess]] - total_exectime[currentProcess]);
-			sort_blockedQueue(executiontime);
-			total_process_completion_time += executiontime;
-			total_exectime[currentProcess] += executiontime;
+			execute_normally(time_quantum, currentProcess);
         }
 
-		printf("\n");
-		printf("value: %i\n", starting_time[0] + total_process_completion_time);
+		//printf("\n");
+		//printf("value: %i\n", starting_time[0] + total_process_completion_time);
         sort_readyQueue(starting_time[0] + total_process_completion_time);   
     }
 }
