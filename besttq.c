@@ -221,19 +221,23 @@ void append_blockedQueue(int currentProcess)
 {
 	number_of_active_processes--;
 	blockedQueue[0] = currentProcess + 1;
-	currentEvent_of_each_process[currentProcess]++; //process will move onto next I/O event if it has not exited yet
+	//currentEvent_of_each_process[currentProcess]++; //process will move onto next I/O event if it has not exited yet
 }
 
+// CLEAN UP 
 int device_number(char device_name[])
 {
 	int device_number = 0; 
+	int i = 0;
+	char empty[] = "";
 
-	for (int i = 0; i < MAX_DEVICES; i++)
-	{
+	while (strcmp(devices[i], empty) != 0 && i < MAX_DEVICES)
+	{   
 		if (strcmp(device_name, devices[i]) == 0)
 		{
 			device_number = i;
 		}
+		i++; 
 	}
 
 	return device_number;
@@ -245,6 +249,8 @@ int transfer__rate(int device_number)
 }
 
 int highest_transferRate; // transfer rate of process about to perform I/O. 
+
+int index; //index of blocked queue process 
 
 // FINDS PROCESS WITH HIGHEST PRIORITY TO PERFORM I/O OPERATIONS
 int prioritized_process()
@@ -262,7 +268,7 @@ int prioritized_process()
 		{
 			highest_transferRate = transfer__rate(device);
 			highest_prioritized_process = blockedQueue[i];
-			//index = i;
+			index = i;
 		}
 	}
 
@@ -276,6 +282,7 @@ void sort_blockedQueue(int available_time)
 {
 	int timespent = 0;
 	int process;
+	/* R  E  M  O  V  E*/ available_time += 40;
 
 	while (timespent < available_time)
 	{
@@ -293,14 +300,13 @@ void sort_blockedQueue(int available_time)
 		}
 	
 		// REMOVE FROM BLOCKED QUEUE IF NO MORE BYTES TO BE TRANSFERRED 
-		for (int i = 0; i < MAX_PROCESSES; i++)
-		{
 			if (io_data[process][currentEvent_of_each_process[process] - 1] <= 0)
 			{
+				blockedQueue[index] = 0;   //ATTEMPT TO REMOVE FROM BLOCKED QUEUE
 				readyQueue[number_of_active_processes] = process;
 				number_of_active_processes++;
+				currentEvent_of_each_process[process]++;
 			}
-		}
 	}
 }
 
