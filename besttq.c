@@ -220,18 +220,28 @@ bool isEmpty_blockedQueue(void)
 void append_blockedQueue(int currentProcess)
 {
 	number_of_active_processes--;
-	blockedQueue[0] = currentProcess + 1;  //change index of 0
+	for (int i = 0; i < MAX_PROCESSES; i++)
+	{
+		if (blockedQueue[i] == 0)
+		{
+			blockedQueue[i] = currentProcess + 1;
+			break;
+		}
+	}
 	//currentEvent_of_each_process[currentProcess]++; //process will move onto next I/O event if it has not exited yet
 }
 
-// CLEAN UP 
 int device_number(char device_name[])
 {
 	int device_number = 0; 
 
 	for (int i = 0; i < MAX_DEVICES; i++)
 	{   
-		if (strcmp(device_name, devices[i]) == 0) return i;
+		if (strcmp(device_name, devices[i]) == 0)
+		{
+			device_number = i;
+			break;
+		}
 	}
 
 	return device_number;
@@ -272,13 +282,14 @@ int prioritized_process()
 }
 
 
-// I/O OPERATIONS PERFORMED HERE. available_time represents the time from a process moving to CPU and executing for 
-// the appropriate time. This function calculates which blocked processes will finish their I/O operations in that time.
+/* I/O OPERATIONS PERFORMED HERE. available_time represents the allocated time that the computer can perform io events. 
+ available_time is either the time from a process moving to CPU and executing for 
+ the appropriate time. If there are no active processes then available_time is set to large value (processes can take
+ as much time as they need to perform io). This function calculates which blocked processes will finish their I/O operations in that time. */
 void sort_blockedQueue(int available_time)
 {
 	double timespent = 0;
 	int process;
-	/* R  E  M  O  V  E*/ available_time += 40;
 
 	while (timespent < available_time && !isEmpty_blockedQueue())
 	{
@@ -291,14 +302,16 @@ void sort_blockedQueue(int available_time)
 		}
 		else
 		{
-			timespent = available_time;
+			timespent = available_time - timespent;
 			io_data[process - 1][currentEvent_of_each_process[process - 1]] -= ((available_time - timespent) * highest_transferRate)/MILLION;
 		}
 	
 		// REMOVE FROM BLOCKED QUEUE IF NO MORE BYTES TO BE TRANSFERRED 
 			if (io_data[process - 1][currentEvent_of_each_process[process - 1]] <= 0)
 			{
-				blockedQueue[index] = 0;   //ATTEMPT TO REMOVE FROM BLOCKED QUEUE
+				// time_context_switch required because process goes from ready to running again
+				if (number_of_active_processes == 0) total_process_completion_time += timespent + TIME_CONTEXT_SWITCH;
+				blockedQueue[index] = 0;   //REMOVE FROM BLOCKED QUEUE
 				readyQueue[number_of_active_processes] = process;
 				number_of_active_processes++;
 				currentEvent_of_each_process[process - 1]++;
@@ -379,11 +392,21 @@ void sort_readyQueue(int system_time)    // REPLACE WITH VARIABLES FOR NEATNESS 
 }
 
 // process executes on CPU. Called by simulate_job_mix()
-void execute_normally(int time_quantum, int currentProcess)
+void execute(int time_quantum, int currentProcess, bool isEmpty_readyQueue)
 {
-
+	int executiontime; //time spent on CPU or time in which CPU is idle (readyQueue is empty and so time moves forward)
 	if ((currentProcess + 1) != previous) total_process_completion_time += TIME_CONTEXT_SWITCH;
-	int executiontime = min(time_quantum, cumulative_exectime[currentProcess][currentEvent_of_each_process[currentProcess]] - total_exectime[currentProcess]);
+
+	if (!isEmpty_readyQueue)
+	{
+		executiontime = min(time_quantum, cumulative_exectime[currentProcess][currentEvent_of_each_process[currentProcess]] - total_exectime[currentProcess]);
+	}
+	else
+	{
+		sort_blockedQueue(100000000 + TIME_CONTEXT_SWITCH); //give arbitrary large value (CPU is idle for however long io processing takes)
+		return;
+	}
+
 	if (!isEmpty_blockedQueue()) sort_blockedQueue(executiontime + TIME_CONTEXT_SWITCH);
 	total_process_completion_time += executiontime;
 	total_exectime[currentProcess] += executiontime;
@@ -403,7 +426,7 @@ void simulate_job_mix(int time_quantum)
 			if (!isEmpty_blockedQueue())
 			{
 				//readyQueue[0] = 0; //remove 
-				execute_normally(time_quantum, currentProcess);
+				execute(time_quantum, currentProcess, true);
 
 			}
 			else
@@ -416,7 +439,7 @@ void simulate_job_mix(int time_quantum)
 
         else
         { 
-			execute_normally(time_quantum, currentProcess);
+			execute(time_quantum, currentProcess, false);
         }
 
 		//printf("\n");
