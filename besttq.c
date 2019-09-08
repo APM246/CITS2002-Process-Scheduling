@@ -510,15 +510,14 @@ int main(int argcount, char *argvalue[])
 //  ACROSS EACH OF THE TIME-QUANTA BEING CONSIDERED
 
 // Simulate with TQ0 first then compare with subsequent TQ values. 
-    simulate_job_mix(TQ0);
-    optimal_time_quantum = TQ0;
-    optimal_completion_time = total_process_completion_time;
-    reset_everything(argvalue[0], argvalue[1]);
+	simulate_job_mix(TQ0);
+	optimal_completion_time = total_process_completion_time;
+	reset_everything(argvalue[0], argvalue[1]);
 
     for (int time_quantum=TQ0 ; time_quantum<=TQfinal ; time_quantum += TQinc) 
     {
         simulate_job_mix(time_quantum);
-        if (total_process_completion_time < optimal_completion_time)
+        if (total_process_completion_time <= optimal_completion_time)
         {
             optimal_completion_time = total_process_completion_time;
             optimal_time_quantum = time_quantum;
