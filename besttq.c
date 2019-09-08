@@ -220,7 +220,7 @@ bool isEmpty_blockedQueue(void)
 void append_blockedQueue(int currentProcess)
 {
 	number_of_active_processes--;
-	blockedQueue[0] = currentProcess + 1;
+	blockedQueue[0] = currentProcess + 1;  //change index of 0
 	//currentEvent_of_each_process[currentProcess]++; //process will move onto next I/O event if it has not exited yet
 }
 
@@ -228,16 +228,10 @@ void append_blockedQueue(int currentProcess)
 int device_number(char device_name[])
 {
 	int device_number = 0; 
-	int i = 0;
-	char empty[] = "";
 
-	while (strcmp(devices[i], empty) != 0 && i < MAX_DEVICES)
+	for (int i = 0; i < MAX_DEVICES; i++)
 	{   
-		if (strcmp(device_name, devices[i]) == 0)
-		{
-			device_number = i;
-		}
-		i++; 
+		if (strcmp(device_name, devices[i]) == 0) return i;
 	}
 
 	return device_number;
@@ -253,23 +247,25 @@ int highest_transferRate; // transfer rate of process about to perform I/O.
 int index; //index of blocked queue process 
 
 // FINDS PROCESS WITH HIGHEST PRIORITY TO PERFORM I/O OPERATIONS
+// CLEAN UP INITIALISATION OF HIGHEST TRANSFERRATE (INITIALISE TO ZERO AND COMPARE WITH I STARTING AT 0)
 int prioritized_process()
 {
 	int device;
 	//int index;
 	int highest_prioritized_process = blockedQueue[0];
-	highest_transferRate = transfer__rate(device_number(io_events[blockedQueue[0]][currentEvent_of_each_process[blockedQueue[0]] - 1]));
+	highest_transferRate = transfer__rate(device_number(io_events[blockedQueue[0] - 1][currentEvent_of_each_process[blockedQueue[0] - 1]]));
+	int i = 0;
 
-
-	for (int i = 1; i < MAX_PROCESSES; i++)
+	while (i < MAX_PROCESSES && blockedQueue[i] != 0)
 	{
-		device = device_number(io_events[blockedQueue[i]][currentEvent_of_each_process[blockedQueue[i]] - 1]);
+		device = device_number(io_events[blockedQueue[i] - 1][currentEvent_of_each_process[blockedQueue[i] - 1]]);
 		if (transfer__rate(device) > highest_transferRate)
 		{
 			highest_transferRate = transfer__rate(device);
 			highest_prioritized_process = blockedQueue[i];
 			index = i;
 		}
+		i++;
 	}
 
 	return highest_prioritized_process;  // NEED TO REMOVE PROCESS FROM BLOCKED QUEUE EVENTUALLY AND CLEANUP USING INDEX VARIABLE 
@@ -280,32 +276,32 @@ int prioritized_process()
 // the appropriate time. This function calculates which blocked processes will finish their I/O operations in that time.
 void sort_blockedQueue(int available_time)
 {
-	int timespent = 0;
+	double timespent = 0;
 	int process;
 	/* R  E  M  O  V  E*/ available_time += 40;
 
-	while (timespent < available_time)
+	while (timespent < available_time && !isEmpty_blockedQueue())
 	{
 		process = prioritized_process();
-		int bytes = io_data[process][currentEvent_of_each_process[process] - 1];
-		if ((bytes / highest_transferRate)*MILLION < available_time - timespent)    // CLEAN UP
+		int bytes = io_data[process - 1][currentEvent_of_each_process[process - 1]];
+		if ((bytes*MILLION/highest_transferRate) < (available_time - timespent))    // CLEAN UP
 		{
-			timespent += bytes / highest_transferRate;
-			io_data[process][currentEvent_of_each_process[process] - 1] -= bytes;
+			timespent += (bytes*MILLION/highest_transferRate);
+			io_data[process - 1][currentEvent_of_each_process[process - 1]] -= bytes;
 		}
 		else
 		{
 			timespent = available_time;
-			io_data[process][currentEvent_of_each_process[process] - 1] -= ((available_time - timespent) * highest_transferRate)/MILLION;
+			io_data[process - 1][currentEvent_of_each_process[process - 1]] -= ((available_time - timespent) * highest_transferRate)/MILLION;
 		}
 	
 		// REMOVE FROM BLOCKED QUEUE IF NO MORE BYTES TO BE TRANSFERRED 
-			if (io_data[process][currentEvent_of_each_process[process] - 1] <= 0)
+			if (io_data[process - 1][currentEvent_of_each_process[process - 1]] <= 0)
 			{
 				blockedQueue[index] = 0;   //ATTEMPT TO REMOVE FROM BLOCKED QUEUE
 				readyQueue[number_of_active_processes] = process;
 				number_of_active_processes++;
-				currentEvent_of_each_process[process]++;
+				currentEvent_of_each_process[process - 1]++;
 			}
 	}
 }
@@ -510,6 +506,7 @@ int main(int argcount, char *argvalue[])
 
 //  PRINT THE PROGRAM'S RESULT
     printf("best %i %i\n", optimal_time_quantum, optimal_completion_time);
+	fflush(stdout);
 
     exit(EXIT_SUCCESS);
 }
