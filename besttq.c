@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <math.h>
 
 /* CITS2002 Project 1 2019
    Name(s):             student-name1 (, student-name2)
@@ -56,7 +57,7 @@ int transfer_rate[MAX_DEVICES];  // STORE TRANSFER RATES [BYTES/SECOND]
 int starting_time[MAX_PROCESSES]; // STORE STARTING TIME OF PROCESSES (SINCE OS REBOOT)
 
 char io_events[MAX_PROCESSES][MAX_EVENTS_PER_PROCESS][MAX_DEVICE_NAME];
-int io_data[MAX_PROCESSES][MAX_EVENTS_PER_PROCESS];
+double io_data[MAX_PROCESSES][MAX_EVENTS_PER_PROCESS];
 int cumulative_exectime[MAX_PROCESSES][MAX_EVENTS_PER_PROCESS]; /* STORE CUMULATIVE EXECUTION TIMES OF EVENTS IN 
 EACH PROCESS*/ 
 int total_exectime[MAX_PROCESSES]; // KEEPS TRACK OF AMOUNT OF TIME EACH PROCESS HAS SPENT ON THE CPU
@@ -294,16 +295,16 @@ void sort_blockedQueue(int available_time)
 	while (timespent < available_time && !isEmpty_blockedQueue())
 	{
 		process = prioritized_process();
-		int bytes = io_data[process - 1][currentEvent_of_each_process[process - 1]];
+	    double bytes = io_data[process - 1][currentEvent_of_each_process[process - 1]];
 		if ((bytes*MILLION/highest_transferRate) < (available_time - timespent))    // CLEAN UP
 		{
-			timespent += (bytes*MILLION/highest_transferRate);
+			timespent += (int) (bytes*MILLION/highest_transferRate + 1); //round up to nearest microsecond
 			io_data[process - 1][currentEvent_of_each_process[process - 1]] -= bytes;
 		}
 		else
 		{
-			timespent = available_time - timespent;
 			io_data[process - 1][currentEvent_of_each_process[process - 1]] -= ((available_time - timespent) * highest_transferRate)/MILLION;
+			timespent = available_time - timespent;
 		}
 	
 		// REMOVE FROM BLOCKED QUEUE IF NO MORE BYTES TO BE TRANSFERRED 
