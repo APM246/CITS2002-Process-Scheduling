@@ -506,7 +506,6 @@ int main(int argcount, char *argvalue[])
 
 //  PRINT THE PROGRAM'S RESULT
     printf("best %i %i\n", optimal_time_quantum, optimal_completion_time);
-	fflush(stdout);
 
     exit(EXIT_SUCCESS);
 }
