@@ -261,25 +261,36 @@ int index; //index of blocked queue process
 // CLEAN UP INITIALISATION OF HIGHEST TRANSFERRATE (INITIALISE TO ZERO AND COMPARE WITH I STARTING AT 0)
 int prioritized_process()
 {
-	int device;
-	//int index;
-	int highest_prioritized_process = blockedQueue[0];
-	highest_transferRate = transfer__rate(device_number(io_events[blockedQueue[0] - 1][currentEvent_of_each_process[blockedQueue[0] - 1]]));
-	int i = 0;
+	int device; 
+	int highest_prioritized_process = 0;
 
-	while (i < MAX_PROCESSES && blockedQueue[i] != 0)
+	// move processes in blocked queue one index to the left (bring closer to front of queue). 
+	for (int j = 0; j < MAX_PROCESSES; j++)
 	{
-		device = device_number(io_events[blockedQueue[i] - 1][currentEvent_of_each_process[blockedQueue[i] - 1]]);
+		if (blockedQueue[j] != 0)
+		{
+			highest_prioritized_process = blockedQueue[j] - 1;
+			break;
+		}
+	}
+
+	//replace line 277 with already formed variable on line 271
+	highest_transferRate = transfer__rate(device_number(io_events[highest_prioritized_process][currentEvent_of_each_process[highest_prioritized_process]]));
+
+	for (int i = 0; i < MAX_PROCESSES; i++)
+	{
+		if (blockedQueue[i] == 0) continue;
+
+		int process = blockedQueue[i] - 1;
+		device = device_number(io_events[process][currentEvent_of_each_process[process]]);
 		if (transfer__rate(device) > highest_transferRate)
 		{
 			highest_transferRate = transfer__rate(device);
-			highest_prioritized_process = blockedQueue[i];
-			index = i;
+			highest_prioritized_process = process;
 		}
-		i++;
 	}
 
-	return highest_prioritized_process;  // NEED TO REMOVE PROCESS FROM BLOCKED QUEUE EVENTUALLY AND CLEANUP USING INDEX VARIABLE 
+	return highest_prioritized_process + 1;  // NEED TO REMOVE PROCESS FROM BLOCKED QUEUE EVENTUALLY AND CLEANUP USING INDEX VARIABLE 
 }
 
 
@@ -294,28 +305,38 @@ void sort_blockedQueue(int available_time)
 
 	while (timespent < available_time && !isEmpty_blockedQueue())
 	{
-		process = prioritized_process();
-	    double bytes = io_data[process - 1][currentEvent_of_each_process[process - 1]];
+		process = prioritized_process() - 1;
+	    double bytes = io_data[process][currentEvent_of_each_process[process]];
 		if ((bytes*MILLION/highest_transferRate) < (available_time - timespent))    // CLEAN UP
 		{
 			timespent += (int) (bytes*MILLION/highest_transferRate + 1); //round up to nearest microsecond
-			io_data[process - 1][currentEvent_of_each_process[process - 1]] -= bytes;
+			io_data[process][currentEvent_of_each_process[process]] -= bytes;
 		}
 		else
 		{
-			io_data[process - 1][currentEvent_of_each_process[process - 1]] -= ((available_time - timespent) * highest_transferRate)/MILLION;
+			io_data[process][currentEvent_of_each_process[process]] -= ((available_time - timespent) * highest_transferRate)/MILLION;
 			timespent = available_time - timespent;
 		}
 	
 		// REMOVE FROM BLOCKED QUEUE IF NO MORE BYTES TO BE TRANSFERRED 
-			if (io_data[process - 1][currentEvent_of_each_process[process - 1]] <= 0)
+			if (io_data[process][currentEvent_of_each_process[process]] <= 0)
 			{
-				// time_context_switch required because process goes from ready to running again
-				if (number_of_active_processes == 0) total_process_completion_time += timespent + TIME_CONTEXT_SWITCH;
+				currentEvent_of_each_process[process]++;
 				blockedQueue[index] = 0;   //REMOVE FROM BLOCKED QUEUE
-				readyQueue[number_of_active_processes] = process;
-				number_of_active_processes++;
-				currentEvent_of_each_process[process - 1]++;
+
+				if (number_of_active_processes == 0)
+				{
+					// time_context_switch required because process goes from ready to running again
+					total_process_completion_time += timespent + TIME_CONTEXT_SWITCH;
+					readyQueue[0] = process + 1;
+					number_of_active_processes++;
+					break;
+				}
+				else
+				{
+					readyQueue[number_of_active_processes] = process + 1;
+					number_of_active_processes++;
+				}
 			}
 	}
 }
