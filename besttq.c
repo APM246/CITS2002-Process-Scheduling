@@ -293,6 +293,7 @@ int prioritized_process()
 	return highest_prioritized_process + 1;  // NEED TO REMOVE PROCESS FROM BLOCKED QUEUE EVENTUALLY AND CLEANUP USING INDEX VARIABLE 
 }
 
+int previous_dataBus_owner = 234;
 
 /* I/O OPERATIONS PERFORMED HERE. available_time represents the allocated time that the computer can perform io events. 
  available_time is either the time from a process moving to CPU and executing for 
@@ -306,10 +307,17 @@ void sort_blockedQueue(int available_time)
 	while (timespent < available_time && !isEmpty_blockedQueue())
 	{
 		process = prioritized_process() - 1;
+		// add time if process needs to acquire data bus (and no processes executing on CPU thus there is no double up
+		// on time context switch and data bus acquiring (+ 5 instead of + 10)
+		if (number_of_active_processes == 0 && previous_dataBus_owner != process) total_process_completion_time += TIME_ACQUIRE_BUS;
+
+		previous_dataBus_owner = process;
+
+
 	    double bytes = io_data[process][currentEvent_of_each_process[process]];
 		if ((bytes*MILLION/highest_transferRate) < (available_time - timespent))    // CLEAN UP
 		{
-			timespent += (int) (bytes*MILLION/highest_transferRate + 1); //round up to nearest microsecond
+			timespent += bytes*MILLION/highest_transferRate; //round up to nearest microsecond
 			io_data[process][currentEvent_of_each_process[process]] -= bytes;
 		}
 		else
@@ -425,7 +433,7 @@ void execute(int time_quantum, int currentProcess, bool isEmpty_readyQueue)
 	}
 	else
 	{
-		sort_blockedQueue(100000000 + TIME_CONTEXT_SWITCH); //give arbitrary large value (CPU is idle for however long io processing takes)
+		sort_blockedQueue(100000000); //give arbitrary large value (CPU is idle for however long io processing takes)
 		return;
 	}
 
@@ -552,6 +560,7 @@ int main(int argcount, char *argvalue[])
     printf("best %i %i\n", optimal_time_quantum, optimal_completion_time);
 
     exit(EXIT_SUCCESS);
+
 }
 
 //  vim: ts=8 sw=4 
