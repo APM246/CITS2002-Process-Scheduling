@@ -317,7 +317,7 @@ void sort_blockedQueue(int available_time, bool isDifferentProcess)
 	    double bytes = io_data[process][currentEvent_of_each_process[process]];
 		if ((bytes*MILLION/highest_transferRate) < (available_time - timespent))    // CLEAN UP
 		{
-			timespent += bytes*MILLION/highest_transferRate; //round up to nearest microsecond
+			timespent += (int) (bytes*MILLION/highest_transferRate + 1); //round up to nearest microsecond
 			io_data[process][currentEvent_of_each_process[process]] -= bytes;
 		}
 		else
