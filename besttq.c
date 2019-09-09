@@ -299,7 +299,7 @@ int previous_dataBus_owner = 234;
  available_time is either the time from a process moving to CPU and executing for 
  the appropriate time. If there are no active processes then available_time is set to large value (processes can take
  as much time as they need to perform io). This function calculates which blocked processes will finish their I/O operations in that time. */
-void sort_blockedQueue(int available_time)
+void sort_blockedQueue(int available_time, bool isDifferentProcess)
 {
 	double timespent = 0;
 	int process;
@@ -309,10 +309,10 @@ void sort_blockedQueue(int available_time)
 		process = prioritized_process() - 1;
 		// add time if process needs to acquire data bus (and no processes executing on CPU thus there is no double up
 		// on time context switch and data bus acquiring (+ 5 instead of + 10)
-		if (number_of_active_processes == 0 && previous_dataBus_owner != process) total_process_completion_time += TIME_ACQUIRE_BUS;
+		if (previous_dataBus_owner != process && number_of_active_processes == 0) total_process_completion_time += TIME_ACQUIRE_BUS;
+		if (isDifferentProcess) available_time += TIME_CONTEXT_SWITCH;
 
 		previous_dataBus_owner = process;
-
 
 	    double bytes = io_data[process][currentEvent_of_each_process[process]];
 		if ((bytes*MILLION/highest_transferRate) < (available_time - timespent))    // CLEAN UP
@@ -424,8 +424,14 @@ void sort_readyQueue(int system_time)    // REPLACE WITH VARIABLES FOR NEATNESS 
 // process executes on CPU. Called by simulate_job_mix()
 void execute(int time_quantum, int currentProcess, bool isEmpty_readyQueue)
 {
+	bool isDifferentProcess = false;
 	int executiontime; //time spent on CPU or time in which CPU is idle (readyQueue is empty and so time moves forward)
-	if ((currentProcess + 1) != previous) total_process_completion_time += TIME_CONTEXT_SWITCH;
+	if ((currentProcess + 1) != previous)
+	{
+		total_process_completion_time += TIME_CONTEXT_SWITCH;
+		isDifferentProcess = true;
+	}
+
 
 	if (!isEmpty_readyQueue)
 	{
@@ -433,11 +439,11 @@ void execute(int time_quantum, int currentProcess, bool isEmpty_readyQueue)
 	}
 	else
 	{
-		sort_blockedQueue(100000000); //give arbitrary large value (CPU is idle for however long io processing takes)
+		sort_blockedQueue(100000000, isDifferentProcess); //give arbitrary large value (CPU is idle for however long io processing takes)
 		return;
 	}
 
-	if (!isEmpty_blockedQueue()) sort_blockedQueue(executiontime + TIME_CONTEXT_SWITCH);
+	if (!isEmpty_blockedQueue()) sort_blockedQueue(executiontime, isDifferentProcess);
 	total_process_completion_time += executiontime;
 	total_exectime[currentProcess] += executiontime;
 }
