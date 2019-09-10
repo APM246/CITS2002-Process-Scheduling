@@ -248,13 +248,7 @@ int device_number(char device_name[])
 	return device_number;
 }
 
-int transfer__rate(int device_number)
-{
-	return transfer_rate[device_number];
-}
-
 int highest_transferRate; // transfer rate of process about to perform I/O. 
-
 int index_BQ; //index of blocked queue process 
 
 // FINDS PROCESS WITH HIGHEST PRIORITY TO PERFORM I/O OPERATIONS
@@ -276,7 +270,7 @@ int prioritized_process()
 	}
 
 	//replace line 277 with already formed variable on line 271
-	highest_transferRate = transfer__rate(device_number(io_events[highest_prioritized_process][currentEvent_of_each_process[highest_prioritized_process]]));
+	highest_transferRate = transfer_rate[device_number(io_events[highest_prioritized_process][currentEvent_of_each_process[highest_prioritized_process]])];
 
 	for (int i = 0; i < MAX_PROCESSES; i++)
 	{
@@ -284,9 +278,9 @@ int prioritized_process()
 
 		int process = blockedQueue[i] - 1;
 		device = device_number(io_events[process][currentEvent_of_each_process[process]]);
-		if (transfer__rate(device) > highest_transferRate)
+		if (transfer_rate[device] > highest_transferRate)
 		{
-			highest_transferRate = transfer__rate(device);
+			highest_transferRate = transfer_rate[device];
 			highest_prioritized_process = process;
 			index_BQ = i; 
 		}
