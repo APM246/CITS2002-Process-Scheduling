@@ -255,7 +255,7 @@ int transfer__rate(int device_number)
 
 int highest_transferRate; // transfer rate of process about to perform I/O. 
 
-int index; //index of blocked queue process 
+int index_BQ; //index of blocked queue process 
 
 // FINDS PROCESS WITH HIGHEST PRIORITY TO PERFORM I/O OPERATIONS
 // CLEAN UP INITIALISATION OF HIGHEST TRANSFERRATE (INITIALISE TO ZERO AND COMPARE WITH I STARTING AT 0)
@@ -330,7 +330,7 @@ void sort_blockedQueue(int available_time, bool isDifferentProcess)
 			if (io_data[process][currentEvent_of_each_process[process]] <= 0)
 			{
 				currentEvent_of_each_process[process]++;
-				blockedQueue[index] = 0;   //REMOVE FROM BLOCKED QUEUE
+				blockedQueue[index_BQ] = 0;   //REMOVE FROM BLOCKED QUEUE
 
 				if (number_of_active_processes == 0)
 				{
