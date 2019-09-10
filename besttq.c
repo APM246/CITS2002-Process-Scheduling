@@ -270,6 +270,7 @@ int prioritized_process()
 		if (blockedQueue[j] != 0)
 		{
 			highest_prioritized_process = blockedQueue[j] - 1;
+			index_BQ = j;
 			break;
 		}
 	}
@@ -287,10 +288,11 @@ int prioritized_process()
 		{
 			highest_transferRate = transfer__rate(device);
 			highest_prioritized_process = process;
+			index_BQ = i; 
 		}
 	}
 
-	return highest_prioritized_process + 1;  // NEED TO REMOVE PROCESS FROM BLOCKED QUEUE EVENTUALLY AND CLEANUP USING INDEX VARIABLE 
+	return highest_prioritized_process + 1;   
 }
 
 int previous_dataBus_owner = 234;
