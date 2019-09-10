@@ -1,0 +1,15 @@
+# tfH: two processes, both compute and perform several I/O operations,
+# all I/O using the same I/O device:
+device	floppy	30000 bytes/sec
+#
+reboot
+# when total = 820 (correct)
+process 2 240 {
+	i/o	250	floppy	2200
+	exit	400
+}
+
+process 5 280 {
+	i/o	320	floppy	1100
+	exit	400
+}
