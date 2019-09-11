@@ -222,6 +222,26 @@ bool isEmpty_blockedQueue(void)
 void append_blockedQueue(int currentProcess)
 {
 	number_of_active_processes--;
+	int j = 0;
+
+	// move all processes one spot down if possible (avoid zeroes in between processes. E.g. {1,0,2} causing a new process to fill
+	// the zero, leading to an incorrct blockedQueue of {1,3,2}
+	while (j < MAX_PROCESSES - 1)
+	{
+		int original; 
+
+		if (blockedQueue[j] == 0)
+		{
+			original = j;
+			while (blockedQueue[j++] == 0 && j != MAX_PROCESSES) {}
+			blockedQueue[original] = blockedQueue[j - 1];
+			blockedQueue[j - 1] = 0;
+			j = original + 1;
+		}
+
+		else j++;
+	}
+
 	for (int i = 0; i < MAX_PROCESSES; i++)
 	{
 		if (blockedQueue[i] == 0)
