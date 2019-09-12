@@ -255,6 +255,18 @@ void append_blockedQueue(int currentProcess)
 	}
 }
 
+void remove_blockedQueue(int process)
+{
+	for (int i = 0; i < MAX_PROCESSES; i++) 
+	{
+		if (blockedQueue[i] == process)
+		{
+			blockedQueue[i] = 0;
+			break;
+		}
+	}
+}
+
 int device_number(char device_name[])
 {
 	int device_number = 0; 
@@ -284,7 +296,7 @@ int get_prioritizedProcess()
 
 	if (!new_dataBus_owner && io_data[prioritized_process][currentEvent_of_each_process[prioritized_process]] < io_data_copy[prioritized_process][currentEvent_of_each_process[prioritized_process]])
 	{
-		return index_BQ + 1;
+		return prioritized_process + 1;
 	}
 
 	// move processes in blocked queue one index to the left (bring closer to front of queue). 
@@ -353,7 +365,7 @@ void sort_blockedQueue(int available_time, bool isDifferentProcess)
 			if (io_data[blocked_process][currentEvent_of_each_process[blocked_process]] <= 0)
 			{
 				currentEvent_of_each_process[blocked_process]++;
-				blockedQueue[index_BQ] = 0;   //REMOVE FROM BLOCKED QUEUE
+				remove_blockedQueue(blocked_process + 1);   //REMOVE FROM BLOCKED QUEUE
 				new_dataBus_owner = true;
 
 				if (number_of_active_processes == 0)
