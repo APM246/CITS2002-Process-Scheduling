@@ -273,8 +273,7 @@ int device_number(char device_name[])
 
 int highest_transferRate; // transfer rate of process about to perform I/O. 
 int index_BQ; //index of blocked queue process 
-bool new_dataBus_owner;
-int prioritized_process;
+bool new_dataBus_owner; //is the owner of the dataBus different from last time it was used?
 
 // FINDS PROCESS WITH HIGHEST PRIORITY TO PERFORM I/O OPERATIONS
 // CLEAN UP INITIALISATION OF HIGHEST TRANSFERRATE (INITIALISE TO ZERO AND COMPARE WITH I STARTING AT 0)
@@ -326,6 +325,7 @@ int get_prioritizedProcess()
 void sort_blockedQueue(int available_time, bool isDifferentProcess)
 {
 	double timespent = 0;
+	int prioritized_process;
 
 	while (timespent < available_time && !isEmpty_blockedQueue())
 	{
@@ -453,7 +453,7 @@ void sort_readyQueue(int system_time)    // REPLACE WITH VARIABLES FOR NEATNESS 
 		first_iteration = false;
 		new_dataBus_owner = true;
 	}
-	else if (get_prioritizedProcess() == old_prioritized_process) new_dataBus_owner = false;
+	if (get_prioritizedProcess() == old_prioritized_process && new_dataBus_owner == false) new_dataBus_owner = false;
 	else new_dataBus_owner = true;
 }
 
