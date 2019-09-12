@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <math.h>
+#include <limits.h>
 
 /* CITS2002 Project 1 2019
    Name(s):             student-name1 (, student-name2)
@@ -270,6 +271,7 @@ int device_number(char device_name[])
 	return device_number;
 }
 
+int prioritized_process;
 int highest_transferRate; // transfer rate of process about to perform I/O. 
 int index_BQ; //index of blocked queue process 
 bool new_dataBus_owner; //is the owner of the dataBus different from last time it was used?
@@ -279,9 +281,8 @@ bool new_dataBus_owner; //is the owner of the dataBus different from last time i
 int get_prioritizedProcess()
 {
 	int device; 
-	int highest_prioritized_process = 0;
 
-	if (new_dataBus_owner == false && io_data[index_BQ][currentEvent_of_each_process[index_BQ]] < io_data_copy[index_BQ][currentEvent_of_each_process[index_BQ]])
+	if (!new_dataBus_owner && io_data[prioritized_process][currentEvent_of_each_process[prioritized_process]] < io_data_copy[prioritized_process][currentEvent_of_each_process[prioritized_process]])
 	{
 		return index_BQ + 1;
 	}
@@ -291,14 +292,14 @@ int get_prioritizedProcess()
 	{
 		if (blockedQueue[j] != 0)
 		{
-			highest_prioritized_process = blockedQueue[j] - 1;
+			prioritized_process = blockedQueue[j] - 1;
 			index_BQ = j;
 			break;
 		}
 	}
 
 	//replace line 277 with already formed variable on line 271
-	highest_transferRate = transfer_rate[device_number(io_events[highest_prioritized_process][currentEvent_of_each_process[highest_prioritized_process]])];
+	highest_transferRate = transfer_rate[device_number(io_events[prioritized_process][currentEvent_of_each_process[prioritized_process]])];
 
 	for (int i = 0; i < MAX_PROCESSES; i++)
 	{
@@ -309,12 +310,12 @@ int get_prioritizedProcess()
 		if (transfer_rate[device] > highest_transferRate)
 		{
 			highest_transferRate = transfer_rate[device];
-			highest_prioritized_process = process;
+			prioritized_process = process;
 			index_BQ = i; 
 		}
 	}
 
-	return highest_prioritized_process + 1;   
+	return prioritized_process + 1;   
 }
 
 /* I/O OPERATIONS PERFORMED HERE. available_time represents the allocated time that the computer can perform io events. 
@@ -324,34 +325,34 @@ int get_prioritizedProcess()
 void sort_blockedQueue(int available_time, bool isDifferentProcess)
 {
 	double timespent = 0;
-	int prioritized_process;
+	int blocked_process;
 
 	while (timespent < available_time && !isEmpty_blockedQueue())
 	{
-		prioritized_process = get_prioritizedProcess() - 1;  //remove (repeated in sort_BlockedQueue)
+		blocked_process = get_prioritizedProcess() - 1;  //remove (repeated in sort_BlockedQueue)
 
 		// if process does not need to reacquire bus then more available time for i/o processing
 		if (number_of_active_processes != 0 && !new_dataBus_owner && isDifferentProcess) available_time += TIME_CONTEXT_SWITCH;
 		else if (number_of_active_processes == 0 && new_dataBus_owner) total_process_completion_time += TIME_ACQUIRE_BUS;
 
-	    double bytes = io_data[prioritized_process][currentEvent_of_each_process[prioritized_process]];
+	    double bytes = io_data[blocked_process][currentEvent_of_each_process[blocked_process]];
 		if ((bytes*MILLION/highest_transferRate) < (available_time - timespent))    // CLEAN UP
 		{
 			timespent += ceil(bytes*MILLION/highest_transferRate); //round up to nearest microsecond
-			io_data[prioritized_process][currentEvent_of_each_process[prioritized_process]] -= bytes;
+			io_data[blocked_process][currentEvent_of_each_process[blocked_process]] -= bytes;
 		}
 		else
 		{
-			io_data[prioritized_process][currentEvent_of_each_process[prioritized_process]] -= ((available_time - timespent) * highest_transferRate)/MILLION;
+			io_data[blocked_process][currentEvent_of_each_process[blocked_process]] -= ((available_time - timespent) * highest_transferRate)/MILLION;
 			timespent = available_time - timespent;
 		}
 
 		new_dataBus_owner = false;
 	
 		// REMOVE FROM BLOCKED QUEUE IF NO MORE BYTES TO BE TRANSFERRED 
-			if (io_data[prioritized_process][currentEvent_of_each_process[prioritized_process]] <= 0)
+			if (io_data[blocked_process][currentEvent_of_each_process[blocked_process]] <= 0)
 			{
-				currentEvent_of_each_process[prioritized_process]++;
+				currentEvent_of_each_process[blocked_process]++;
 				blockedQueue[index_BQ] = 0;   //REMOVE FROM BLOCKED QUEUE
 				new_dataBus_owner = true;
 
@@ -359,14 +360,14 @@ void sort_blockedQueue(int available_time, bool isDifferentProcess)
 				{
 					// time_context_switch required because process goes from ready to running again
 					total_process_completion_time += timespent + TIME_CONTEXT_SWITCH;
-					readyQueue[0] = prioritized_process + 1;
+					readyQueue[0] = blocked_process + 1;
 					number_of_active_processes++;
 					//acquireBus = true;
 					break;
 				}
 				else
 				{
-					readyQueue[number_of_active_processes] = prioritized_process + 1;
+					readyQueue[number_of_active_processes] = blocked_process + 1;
 					number_of_active_processes++;
 				}
 			}
@@ -457,7 +458,7 @@ void sort_readyQueue(int system_time)    // REPLACE WITH VARIABLES FOR NEATNESS 
 	{
 		first_iteration = false;
 		new_dataBus_owner = true;
-	}
+	}   //replace == false)
 	else if (get_prioritizedProcess() == old_prioritized_process && new_dataBus_owner == false) new_dataBus_owner = false;
 	else new_dataBus_owner = true;
 }
@@ -467,7 +468,7 @@ void execute(int time_quantum, int currentProcess, bool isEmpty_readyQueue)
 {
 	bool isDifferentProcess = false;
 	int executiontime; //time spent on CPU or time in which CPU is idle (readyQueue is empty and so time moves forward)
-	if ((currentProcess + 1) != previous)
+	if ((currentProcess + 1) != previous)     // if num_activ_proc == 0?
 	{
 		total_process_completion_time += TIME_CONTEXT_SWITCH;
 		isDifferentProcess = true;
@@ -480,7 +481,7 @@ void execute(int time_quantum, int currentProcess, bool isEmpty_readyQueue)
 	}
 	else
 	{
-		sort_blockedQueue(100000000, isDifferentProcess); //give arbitrary large value (CPU is idle for however long io processing takes)
+		sort_blockedQueue(INT_MAX, isDifferentProcess); //give large value (CPU is idle for however long io processing takes)
 		return;
 	}
 
@@ -516,8 +517,8 @@ void simulate_job_mix(int time_quantum)
 
 		else execute(time_quantum, currentProcess, false);
 
-		printf("\n");
-		printf("value: %i\n", starting_time[0] + total_process_completion_time);
+		//printf("\n");
+		//printf("value: %i\n", starting_time[0] + total_process_completion_time);
         sort_readyQueue(starting_time[0] + total_process_completion_time);   
     }
 }
@@ -534,6 +535,7 @@ void reset_everything(char program[], char tracefile[])
     toAdd = 1;
 	new_dataBus_owner = true;
 	first_iteration = true;
+	prioritized_process = 0;
     parse_tracefile(program, tracefile);
     reset_currentEvent_of_each_process();
 	reset_total_exectime();
