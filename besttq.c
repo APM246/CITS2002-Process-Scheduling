@@ -58,6 +58,7 @@ int starting_time[MAX_PROCESSES]; // STORE STARTING TIME OF PROCESSES (SINCE OS 
 
 char io_events[MAX_PROCESSES][MAX_EVENTS_PER_PROCESS][MAX_DEVICE_NAME];
 double io_data[MAX_PROCESSES][MAX_EVENTS_PER_PROCESS];
+double io_data_copy[MAX_PROCESSES][MAX_EVENTS_PER_PROCESS];
 int cumulative_exectime[MAX_PROCESSES][MAX_EVENTS_PER_PROCESS]; /* STORE CUMULATIVE EXECUTION TIMES OF EVENTS IN 
 EACH PROCESS*/ 
 int total_exectime[MAX_PROCESSES]; // KEEPS TRACK OF AMOUNT OF TIME EACH PROCESS HAS SPENT ON THE CPU
@@ -121,10 +122,11 @@ void parse_tracefile(char program[], char tracefile[])
             starting_time[totalProcesses] = atoi(word2); // FOUND THE START OF A PROCESS'S EVENTS
         }
 
-        else if(nwords == 4 && strcmp(word0, "i/o") == 0) {
-            cumulative_exectime[totalProcesses][n_events] = atoi(word1);   
-            strcpy(io_events[totalProcesses][n_events], word2);
-            io_data[totalProcesses][n_events] = atoi(word3);
+		else if (nwords == 4 && strcmp(word0, "i/o") == 0) {
+			cumulative_exectime[totalProcesses][n_events] = atoi(word1);
+			strcpy(io_events[totalProcesses][n_events], word2);
+			io_data[totalProcesses][n_events] = atoi(word3);
+			io_data_copy[totalProcesses][n_events] = atoi(word3);
             n_events++;
             
             //  AN I/O EVENT FOR THE CURRENT PROCESS
@@ -271,6 +273,8 @@ int device_number(char device_name[])
 
 int highest_transferRate; // transfer rate of process about to perform I/O. 
 int index_BQ; //index of blocked queue process 
+bool new_dataBus_owner;
+int prioritized_process;
 
 // FINDS PROCESS WITH HIGHEST PRIORITY TO PERFORM I/O OPERATIONS
 // CLEAN UP INITIALISATION OF HIGHEST TRANSFERRATE (INITIALISE TO ZERO AND COMPARE WITH I STARTING AT 0)
@@ -278,6 +282,11 @@ int get_prioritizedProcess()
 {
 	int device; 
 	int highest_prioritized_process = 0;
+
+	if (new_dataBus_owner == false && io_data[index_BQ][currentEvent_of_each_process[index_BQ]] < io_data_copy[index_BQ][currentEvent_of_each_process[index_BQ]])
+	{
+		return index_BQ + 1;
+	}
 
 	// move processes in blocked queue one index to the left (bring closer to front of queue). 
 	for (int j = 0; j < MAX_PROCESSES; j++)
@@ -310,9 +319,6 @@ int get_prioritizedProcess()
 	return highest_prioritized_process + 1;   
 }
 
-bool new_dataBus_owner;  
-int prioritized_process;
-
 /* I/O OPERATIONS PERFORMED HERE. available_time represents the allocated time that the computer can perform io events. 
  available_time is either the time from a process moving to CPU and executing for 
  the appropriate time. If there are no active processes then available_time is set to large value (processes can take
@@ -323,7 +329,7 @@ void sort_blockedQueue(int available_time, bool isDifferentProcess)
 
 	while (timespent < available_time && !isEmpty_blockedQueue())
 	{
-		prioritized_process = get_prioritizedProcess() - 1;
+		prioritized_process = get_prioritizedProcess() - 1;  //remove (repeated in sort_BlockedQueue)
 
 		// if process does not need to reacquire bus then more available time for i/o processing
 		if (number_of_active_processes != 0 && !new_dataBus_owner && isDifferentProcess) available_time += TIME_CONTEXT_SWITCH;
@@ -340,12 +346,15 @@ void sort_blockedQueue(int available_time, bool isDifferentProcess)
 			io_data[prioritized_process][currentEvent_of_each_process[prioritized_process]] -= ((available_time - timespent) * highest_transferRate)/MILLION;
 			timespent = available_time - timespent;
 		}
+
+		new_dataBus_owner = false;
 	
 		// REMOVE FROM BLOCKED QUEUE IF NO MORE BYTES TO BE TRANSFERRED 
 			if (io_data[prioritized_process][currentEvent_of_each_process[prioritized_process]] <= 0)
 			{
 				currentEvent_of_each_process[prioritized_process]++;
 				blockedQueue[index_BQ] = 0;   //REMOVE FROM BLOCKED QUEUE
+				new_dataBus_owner = true;
 
 				if (number_of_active_processes == 0)
 				{
