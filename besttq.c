@@ -406,7 +406,11 @@ void sort_readyQueue(int system_time)    // REPLACE WITH VARIABLES FOR NEATNESS 
     for (int i = 0; i < totalProcesses - 1; i++)
     {
         int nextvalue;
-        if((nextvalue = readyQueue[i+1]) != 0) readyQueue[i] = nextvalue;
+		if ((nextvalue = readyQueue[i + 1]) != 0)
+		{
+			readyQueue[i] = nextvalue;
+			readyQueue[i + 1] = 0;
+		}
     }
 
 	// THE REMAINING CODE IN THIS FUNCTION DECIDES HOW THE BACK OF THE READY QUEUE SHOULD BE. 
