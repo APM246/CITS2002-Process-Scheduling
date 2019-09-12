@@ -252,7 +252,6 @@ void append_blockedQueue(int currentProcess)
 			break;
 		}
 	}
-	//currentEvent_of_each_process[currentProcess]++; //process will move onto next I/O event if it has not exited yet
 }
 
 int device_number(char device_name[])
@@ -424,7 +423,8 @@ void sort_readyQueue(int system_time)    // REPLACE WITH VARIABLES FOR NEATNESS 
 			if (number_of_active_processes != 0)
 			{
 				readyQueue[n_active_processes - 1] = toAdd + 1;
-				readyQueue[n_active_processes] = previous;
+				if (ready_to_block) readyQueue[n_active_processes] = 0;
+				else readyQueue[n_active_processes] = previous;
 			}
 			else readyQueue[0] = toAdd + 1;
 
@@ -450,6 +450,7 @@ void sort_readyQueue(int system_time)    // REPLACE WITH VARIABLES FOR NEATNESS 
 	{
 		append_blockedQueue(currentProcess);
 		ready_to_block = false;
+		//if (number_of_active_processes == 0) readyQueue[0] = 0;
 	}  // REMOVE REMOVE unchanged_currentEvent
 
 	if (first_iteration && !isEmpty_blockedQueue())
@@ -457,7 +458,7 @@ void sort_readyQueue(int system_time)    // REPLACE WITH VARIABLES FOR NEATNESS 
 		first_iteration = false;
 		new_dataBus_owner = true;
 	}
-	if (get_prioritizedProcess() == old_prioritized_process && new_dataBus_owner == false) new_dataBus_owner = false;
+	else if (get_prioritizedProcess() == old_prioritized_process && new_dataBus_owner == false) new_dataBus_owner = false;
 	else new_dataBus_owner = true;
 }
 
@@ -515,8 +516,8 @@ void simulate_job_mix(int time_quantum)
 
 		else execute(time_quantum, currentProcess, false);
 
-		//printf("\n");
-		//printf("value: %i\n", starting_time[0] + total_process_completion_time);
+		printf("\n");
+		printf("value: %i\n", starting_time[0] + total_process_completion_time);
         sort_readyQueue(starting_time[0] + total_process_completion_time);   
     }
 }
