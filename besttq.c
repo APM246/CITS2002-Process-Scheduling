@@ -389,8 +389,8 @@ int toAdd = 1; //next process waiting to be added to ready queue for the first t
 void sort_readyQueue(int system_time)    // REPLACE WITH VARIABLES FOR NEATNESS AND ALSO ALL COMMENTS NEED TO BE IN CAPS
 {
 	int currentProcess = readyQueue[0] - 1; // process that was most recently at front of readyQueue (before it executed)
-	int n_active_processes = number_of_active_processes; //keep copy for later 
-	int unchanged_currentEvent = currentEvent_of_each_process[currentProcess]; // keep copy for later use (not affected by changes)
+	int n_active_processes = number_of_active_processes; //keepy copy for later 
+	int unchanged_currentEvent = currentEvent_of_each_process[currentProcess]; //remove
 	int old_prioritized_process = get_prioritizedProcess();
 	previous = readyQueue[0];
 	int finalevent = get_final_event(currentProcess);
@@ -467,7 +467,7 @@ void sort_readyQueue(int system_time)    // REPLACE WITH VARIABLES FOR NEATNESS 
 	{
 		first_iteration = false;
 		new_dataBus_owner = true;
-	}   //replace == false)
+	}							//replace == false)
 	else if (get_prioritizedProcess() == old_prioritized_process && new_dataBus_owner == false) new_dataBus_owner = false;
 	else new_dataBus_owner = true;
 }
