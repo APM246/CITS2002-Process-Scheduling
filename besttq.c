@@ -285,7 +285,6 @@ int device_number(char device_name[])
 
 int prioritized_process;
 int highest_transferRate; // transfer rate of process about to perform I/O. 
-int index_BQ; //index of blocked queue process 
 bool new_dataBus_owner; //is the owner of the dataBus different from last time it was used?
 
 // FINDS PROCESS WITH HIGHEST PRIORITY TO PERFORM I/O OPERATIONS
@@ -305,7 +304,6 @@ int get_prioritizedProcess()
 		if (blockedQueue[j] != 0)
 		{
 			prioritized_process = blockedQueue[j] - 1;
-			index_BQ = j;
 			break;
 		}
 	}
@@ -323,7 +321,6 @@ int get_prioritizedProcess()
 		{
 			highest_transferRate = transfer_rate[device];
 			prioritized_process = process;
-			index_BQ = i; 
 		}
 	}
 
