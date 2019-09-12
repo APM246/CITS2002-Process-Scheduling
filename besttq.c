@@ -37,7 +37,7 @@
 
 int optimal_time_quantum                = 0;
 int total_process_completion_time       = 0;
-int optimal_completion_time             = 0;
+int optimal_completion_time             = INT_MAX; //start off with INT_MAX, then use for loop in main() to find shortest
 
 //  ----------------------------------------------------------------------
 
@@ -594,12 +594,6 @@ int main(int argcount, char *argvalue[])
 //  SIMULATE THE JOB-MIX FROM THE TRACEFILE, VARYING THE TIME-QUANTUM EACH TIME.
 //  WE NEED TO FIND THE BEST (SHORTEST) TOTAL-PROCESS-COMPLETION-TIME
 //  ACROSS EACH OF THE TIME-QUANTA BEING CONSIDERED
-
-// Simulate with TQ0 first then compare with subsequent TQ values. 
-	simulate_job_mix(TQ0);
-	optimal_completion_time = total_process_completion_time;
-	reset_everything(argvalue[0], argvalue[1]);
-
     for (int time_quantum=TQ0 ; time_quantum<=TQfinal ; time_quantum += TQinc) 
     {
         simulate_job_mix(time_quantum);
