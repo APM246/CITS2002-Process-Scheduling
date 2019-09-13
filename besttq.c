@@ -460,7 +460,6 @@ void sort_readyQueue(int system_time)    // REPLACE WITH VARIABLES FOR NEATNESS 
 	{
 		append_blockedQueue(currentProcess);
 		ready_to_block = false;
-		//if (number_of_active_processes == 0) readyQueue[0] = 0;
 	}  // REMOVE REMOVE unchanged_currentEvent
 
 	if (first_iteration && !isEmpty_blockedQueue())
@@ -512,9 +511,7 @@ void simulate_job_mix(int time_quantum)
         {
 			if (!isEmpty_blockedQueue())
 			{
-				//readyQueue[0] = 0; //remove 
 				execute(time_quantum, currentProcess, true);
-
 			}
 			else
 			{
