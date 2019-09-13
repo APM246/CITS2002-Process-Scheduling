@@ -158,10 +158,8 @@ void parse_tracefile(char program[], char tracefile[])
 #undef  MAXWORD
 #undef  CHAR_COMMENT
 
-//  ----------------------------------------------------------------------
-
-// three functions which reset readyQueue, currentEvent_of_each_process and total execution time of each process
-// called for each new simulation of job mix (with TQ varying)
+//  ----------------------------------------------------- RESET FUNCTIONS 
+// Called for each new simulation of job mix (with TQ varying)
 
 void reset_readyQueue(void)
 {
@@ -197,7 +195,7 @@ void reset_total_exectime(void)
 	}
 }
 
-//  ----------------------------------------------------------------------
+//  ----------------------------------------------------- HELPER FUNCTIONS 
 
 // RETURNS EVENT NUMBER OF FINAL EVENT OF A SPECIFIED PROCESS 
 int get_final_event(int process)
@@ -288,7 +286,7 @@ int device_number(char device_name[])
 }
 
 // FINDS PROCESS WITH HIGHEST PRIORITY TO PERFORM I/O OPERATIONS
-int get_prioritizedProcess()
+int get_prioritizedProcess(void)
 {
 	int device; 
 
