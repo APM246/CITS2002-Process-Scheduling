@@ -73,6 +73,7 @@ int number_of_exited_processes = 0;
 int number_of_active_processes = 1;  // processes currently rotating between ready and running 
 // set to 1 automatically (process 1)
 bool first_iteration = true;
+int toAdd = 1; //next process waiting to be added to ready queue for the first time
 
 void parse_tracefile(char program[], char tracefile[])
 {
@@ -383,8 +384,6 @@ void sort_blockedQueue(int available_time, bool isDifferentProcess)
 	}
 }
 
-int toAdd = 1; //next process waiting to be added to ready queue for the first time
-
 // manages the Ready Queue after each time quantum (or when a process exits/becomes blocked)
 void sort_readyQueue(int system_time)    // REPLACE WITH VARIABLES FOR NEATNESS AND ALSO ALL COMMENTS NEED TO BE IN CAPS
 {
@@ -489,7 +488,7 @@ void execute(int time_quantum, int currentProcess, bool isEmpty_readyQueue)
 	}
 	else
 	{
-		sort_blockedQueue(INT_MAX, isDifferentProcess); //give large value (CPU is idle for however long io processing takes)
+		sort_blockedQueue(INT_MAX, isDifferentProcess); //give large value (CPU is idle for however long i/o processing takes)
 		return;
 	}
 
